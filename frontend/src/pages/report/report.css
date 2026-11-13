@@ -1,0 +1,5 @@
+/* The assessment report's paper size and margins: the one rule with no utility. Outside any layer:
+   not every browser accepts @page inside one. */
+@media print {
+  @page { size: A4; margin: 16mm 14mm 18mm; }
+}

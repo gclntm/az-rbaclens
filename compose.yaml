@@ -1,0 +1,94 @@
+# RBAC Lens, from the published images: no clone, no build.
+#
+#   mkdir rbaclens && cd rbaclens
+#   curl -fsSLO https://raw.githubusercontent.com/gclntm/az-rbaclens/main/compose.yaml
+#   printf 'POSTGRES_PASSWORD=%s\nENCRYPTION_KEY=%s\n' \
+#     "$(openssl rand -hex 24)" "$(openssl rand -base64 32 | tr '+/' '-_')" > .env
+#   docker compose up -d          # then open http://localhost:8080
+#
+# Then save the Azure credentials on Settings → Credentials, or add
+# ARM_CLIENT_ID / ARM_CLIENT_SECRET / ARM_TENANT_ID to .env and run
+# `docker compose up -d` again. A read-only service principal is enough:
+# docs/deployment.md#azure-identity-least-privilege.
+#
+# Keep .env: ENCRYPTION_KEY decrypts the credentials saved in the app, and
+# POSTGRES_PASSWORD opens the database. Sign-in is off until you turn it on
+# (Settings → Authentication), so the app answers on this machine only;
+# BIND_ADDRESS=0.0.0.0 opens it to the network, after sign-in is on.
+#
+# Optional in .env: RBACLENS_VERSION (default latest; pin one, e.g. 0.32.0),
+# RBACLENS_PORT (default 8080), TZ (e.g. Europe/Paris; the daily check runs at
+# 06:00 in it), EXTRA_SERVER_NAMES (host names besides localhost).
+# Upgrade: change RBACLENS_VERSION, then `docker compose up -d`; the database
+# migrates on start. Back up first:
+#   docker compose exec -T db pg_dump -U rbaclens -Fc rbaclens > rbaclens.dump
+#
+# Building from source, the test stack, automatic backups and email are in
+# the repository: `make up prod` (docs/deployment.md).
+
+name: rbaclens
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+x-hardening: &hardening
+  - no-new-privileges:true
+
+services:
+  db:
+    image: postgres:18-alpine
+    logging: *logging
+    security_opt: *hardening
+    environment:
+      POSTGRES_USER: rbaclens
+      POSTGRES_DB: rbaclens
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env (see the top of compose.yaml)}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rbaclens -d rbaclens"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - db_data:/var/lib/postgresql
+    restart: unless-stopped
+
+  backend:
+    image: ${RBACLENS_IMAGES:-gclntm}/rbaclens-backend:${RBACLENS_VERSION:-latest}
+    logging: *logging
+    security_opt: *hardening
+    environment:
+      STAGE: prod
+      LOG_LEVEL: INFO
+      DATABASE_URL: postgresql+psycopg://rbaclens:${POSTGRES_PASSWORD}@db:5432/rbaclens
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?set ENCRYPTION_KEY in .env (see the top of compose.yaml)}
+      ARM_CLIENT_ID: ${ARM_CLIENT_ID:-}
+      ARM_CLIENT_SECRET: ${ARM_CLIENT_SECRET:-}
+      ARM_TENANT_ID: ${ARM_TENANT_ID:-}
+      CORS_ORIGINS: '["http://localhost:${RBACLENS_PORT:-8080}"]'
+      PUBLIC_URL: http://localhost:${RBACLENS_PORT:-8080}
+      EXTRA_SERVER_NAMES: ${EXTRA_SERVER_NAMES:-}
+      TZ: ${TZ:-}
+      # Trust the frontend's X-Forwarded-For: only this stack's network reaches the backend.
+      FORWARDED_ALLOW_IPS: "*"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    image: ${RBACLENS_IMAGES:-gclntm}/rbaclens-frontend:${RBACLENS_VERSION:-latest}
+    logging: *logging
+    security_opt: *hardening
+    environment:
+      EXTRA_SERVER_NAMES: ${EXTRA_SERVER_NAMES:-}
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${RBACLENS_PORT:-8080}:8080"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  db_data:

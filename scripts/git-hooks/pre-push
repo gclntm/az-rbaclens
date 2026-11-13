@@ -1,0 +1,4 @@
+#!/bin/sh
+# Refuses a push that would publish private data: see scripts/public_check.py.
+# Installed by `make hooks` (git config core.hooksPath scripts/git-hooks).
+exec python3 "$(git rev-parse --show-toplevel)/scripts/public_check.py" push "$1"

@@ -1,0 +1,98 @@
+/*
+ * Our palette for Untitled UI (docs/plan-untitled-ui.md, phase 1).
+ *
+ * Untitled UI's components use semantic tokens (--color-bg-primary,
+ * --color-text-tertiary…). Here they point at our own variables
+ * (variables.css), which already switch with data-theme, so one map covers
+ * light and dark and the components match the rest of the app. Imported
+ * after Untitled UI's theme.css:
+ * - @theme values override theirs (fonts, the brand scale);
+ * - the semantic map sits in the base layer, after their .dark-mode block,
+ *   so it wins in both themes.
+ */
+
+@theme {
+  /* Fonts: the Inter and JetBrains Mono the app already serves. */
+  --font-body: var(--app-font-body);
+  --font-display: var(--app-font-body);
+  --font-mono: var(--app-font-mono);
+
+  /* Brand: our blue, as the exact values the app uses (Tailwind 3's blue scale). */
+  --color-brand-25: #f5f9ff;
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-200: #bfdbfe;
+  --color-brand-300: #93c5fd;
+  --color-brand-400: #60a5fa;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8;
+  --color-brand-800: #1e40af;
+  --color-brand-900: #1e3a8a;
+  --color-brand-950: #172554;
+}
+
+@layer base {
+  :root,
+  .dark-mode {
+    /* Surfaces: a block, its hover, a table header, a chip. */
+    --color-bg-primary: var(--bg-card);
+    --color-bg-primary_alt: var(--bg-card);
+    --color-bg-primary_hover: var(--bg-card-hover);
+    --color-bg-secondary: var(--bg-table-head);
+    --color-bg-secondary_alt: var(--bg-table-head);
+    --color-bg-secondary_hover: var(--bg-card-hover);
+    --color-bg-tertiary: var(--chip-bg);
+
+    /* Borders: a block's own border, and the lines inside it. */
+    --color-border-primary: var(--border-card);
+    --color-border-secondary: var(--border);
+    --color-border-tertiary: var(--border);
+
+    /* Text and icons, from strongest to quietest. Untitled UI has one more
+       step than we do; "secondary" sits between our primary and secondary. */
+    --color-text-primary: var(--text-primary);
+    --color-text-secondary: color-mix(in srgb, var(--text-primary) 45%, var(--text-secondary));
+    --color-text-secondary_hover: var(--text-primary);
+    --color-text-tertiary: var(--text-secondary);
+    --color-text-tertiary_hover: var(--text-primary);
+    --color-text-quaternary: var(--text-muted);
+    --color-text-placeholder: var(--text-muted);
+    --color-fg-primary: var(--text-primary);
+    --color-fg-secondary: color-mix(in srgb, var(--text-primary) 45%, var(--text-secondary));
+    --color-fg-secondary_hover: var(--text-primary);
+    --color-fg-tertiary: var(--text-secondary);
+    --color-fg-tertiary_hover: var(--text-primary);
+    --color-fg-quaternary: var(--text-muted);
+    --color-fg-quaternary_hover: var(--text-secondary);
+
+    /* States: our accents, which keep 4.5:1 on our surfaces in both themes
+       (Untitled UI's light warning orange is about 3.4:1 on white). */
+    --color-text-warning-primary: var(--accent-orange);
+    --color-fg-warning-primary: var(--accent-orange);
+    --color-fg-warning-secondary: var(--accent-orange);
+    --color-text-success-primary: var(--accent-green);
+    --color-fg-success-primary: var(--accent-green);
+    --color-fg-success-secondary: var(--accent-green);
+    --color-text-error-primary: var(--accent-red);
+    --color-text-error-primary_hover: var(--accent-red);
+    --color-fg-error-primary: var(--accent-red);
+    --color-fg-error-secondary: var(--accent-red);
+
+    /* Featured icons (tiles, section headers): our subtle tint and accent, as the old
+       tiles had. Untitled UI's dark theme makes them solid, saturated circles. */
+    --color-bg-success-secondary: var(--accent-green-subtle);
+    --color-bg-warning-secondary: var(--accent-orange-subtle);
+    --color-bg-error-secondary: var(--accent-red-subtle);
+    --color-bg-brand-secondary: var(--accent-blue-subtle);
+    --color-featured-icon-light-fg-success: var(--accent-green);
+    --color-featured-icon-light-fg-warning: var(--accent-orange);
+    --color-featured-icon-light-fg-error: var(--accent-red);
+    --color-featured-icon-light-fg-brand: var(--accent-blue);
+    --color-featured-icon-light-fg-gray: var(--text-secondary);
+
+    /* Links: Untitled UI's "brand" text, which its dark theme turns grey; ours stay blue. */
+    --color-text-brand-secondary: var(--link);
+    --color-text-brand-secondary_hover: var(--link);
+  }
+}

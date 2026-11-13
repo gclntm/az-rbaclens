@@ -1,0 +1,148 @@
+# Publishes a release when `make release` pushes a vX.Y.Z tag:
+#   1. checks the tag against backend/app/version.py and docs/CHANGELOG.md,
+#      then runs `make check` (the same tests as ci.yml) on the tagged commit;
+#   2. builds the backend and frontend images (target prod), scans them with
+#      the Trivy image pinned in the Makefile, and stops on a fixable CRITICAL
+#      vulnerability, before anything is published;
+#   3. pushes both images to Docker Hub for linux/amd64 and linux/arm64, tagged
+#      X.Y.Z and latest, with an SBOM and provenance;
+#   4. publishes each Docker Hub repository's overview (docs/dockerhub.md)
+#      and short description, through dockerhub-overview.yml;
+#   5. creates the GitHub release with that version's changelog section.
+#
+# Needs, in the repository's Settings → Secrets and variables → Actions:
+#   secrets   DOCKERHUB_USERNAME, DOCKERHUB_TOKEN (a Docker Hub personal access
+#             token with Read, Write & Delete, never the password: the
+#             overview API needs Delete)
+#   variable  DOCKERHUB_NAMESPACE (optional; default gclntm): the Docker Hub
+#             account or organisation the images go to
+# See docs/development.md#publishing-the-images.
+#
+# Actions are pinned to a commit; the comment names its release.
+
+name: Release
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE || 'gclntm' }}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: The tag, the app version and the changelog agree
+        id: version
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          app=$(sed -nE 's/^__version__ = "([^"]+)"/\1/p' backend/app/version.py)
+          [ "$v" = "$app" ] || { echo "::error::tag $GITHUB_REF_NAME, but backend/app/version.py says $app"; exit 1; }
+          grep -q "^## \[$v\] - " docs/CHANGELOG.md || { echo "::error::docs/CHANGELOG.md has no [$v] section"; exit 1; }
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+      - name: make check (nothing is published if a test fails)
+        run: make check
+
+  images:
+    needs: check
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        component: [backend, frontend]
+    env:
+      IMAGE: ${{ vars.DOCKERHUB_NAMESPACE || 'gclntm' }}/rbaclens-${{ matrix.component }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build for the scan (linux/amd64, not pushed)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ${{ matrix.component }}
+          target: prod
+          load: true
+          tags: rbaclens-${{ matrix.component }}:scan
+          cache-from: type=gha,scope=${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}
+
+      - name: Trivy (stops on a fixable CRITICAL vulnerability)
+        run: |
+          trivy_image=$(make -s --no-print-directory _trivy-image)
+          trivy() { docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v trivy-cache:/root/.cache \
+            "$trivy_image" image --quiet --scanners vuln --ignore-unfixed "$@" "rbaclens-${{ matrix.component }}:scan"; }
+          trivy --severity HIGH,CRITICAL
+          trivy --severity CRITICAL --exit-code 1
+
+      - name: Image tags and labels
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=${{ needs.check.outputs.version }}
+            type=raw,value=latest
+          labels: |
+            org.opencontainers.image.title=rbaclens-${{ matrix.component }}
+            org.opencontainers.image.licenses=Apache-2.0
+
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push (linux/amd64, linux/arm64)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ${{ matrix.component }}
+          target: prod
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha,scope=${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}
+
+  overview:
+    needs: images
+    uses: ./.github/workflows/dockerhub-overview.yml
+    secrets: inherit
+
+  release:
+    needs: [check, images]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: GitHub release with the changelog section
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          awk -v v="$VERSION" '
+            index($0, "## [" v "] - ") == 1 { on = 1; next }
+            on && /^## / { exit }
+            on { print }' docs/CHANGELOG.md \
+            | sed -E "s#\]\(([A-Za-z0-9_.-]+\.md)#](https://github.com/$GITHUB_REPOSITORY/blob/$GITHUB_REF_NAME/docs/\1#g" > notes.md
+          {
+            echo
+            echo "**Images:** \`docker pull $NAMESPACE/rbaclens-backend:$VERSION\` and \`$NAMESPACE/rbaclens-frontend:$VERSION\`"
+            echo "(linux/amd64, linux/arm64). How to run them: [deployment.md](https://github.com/$GITHUB_REPOSITORY/blob/$GITHUB_REF_NAME/docs/deployment.md#published-images)."
+          } >> notes.md
+          gh release create "$GITHUB_REF_NAME" --verify-tag --title "RBAC Lens $VERSION" --notes-file notes.md

@@ -1,0 +1,75 @@
+# RBAC Lens frontend: the SPA plus a proxy to the backend's /api.
+#
+# Rendered by the nginx image at start (envsubst on /etc/nginx/templates):
+# ${EXTRA_SERVER_NAMES} adds names this site answers to, space-separated
+# (set EXTRA_SERVER_NAMES in .env.<env>). Only ${...} names that are set in
+# the environment are replaced; nginx's own $variables are left alone.
+
+server_tokens off;
+
+# Caching: the built files under /assets/ carry a hash in their name, so they never change and
+# can be kept a year; everything else (index.html, the API) is checked again on every load, so
+# a browser picks up a new version right after a deploy. Set here, not per location: a location
+# with its own add_header would drop the security headers below.
+map $uri $rbaclens_cache {
+    ~^/assets/  "public, max-age=31536000, immutable";
+    default     "no-cache";
+}
+
+# Answer only to known host names. Requests naming any other host (for
+# example a DNS name that suddenly points here) are dropped without a
+# response. IP addresses are accepted, so the app stays reachable by the
+# Mac's address on the local network.
+# Port 8080 inside the container: nginx runs as its own user, not root, and
+# may not open ports below 1024. Compose publishes it on the host's port 80.
+server {
+    listen 8080 default_server;
+    listen [::]:8080 default_server;
+    server_name _;
+    return 444;
+}
+
+server {
+    listen 8080;
+    listen [::]:8080;
+    server_name localhost 127.0.0.1 "[::1]" *.local "~^\d{1,3}(\.\d{1,3}){3}$" ${EXTRA_SERVER_NAMES};
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Compression: the app bundle shrinks about 70 %, the API's JSON about 90 %.
+    # "proxied any" includes the API's answers. No response holds a secret next
+    # to text a caller controls, so compressing them leaks nothing (BREACH).
+    gzip on;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_types application/json application/javascript text/css text/plain text/markdown image/svg+xml;
+
+    # Security headers on every response, the API's included ("always": on errors too).
+    # CSP: scripts only from this site; styles allow inline (React style attributes
+    # and the report's print footer); fonts are bundled; sign-in talks to Entra ID.
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
+    add_header Cross-Origin-Opener-Policy "same-origin" always;
+    add_header Cache-Control $rbaclens_cache always;
+
+    location /api/ {
+        proxy_pass http://backend:8000/api/;
+        # The Host the browser sent, port included: the backend compares it with
+        # the request's Origin (app/core/request_guard.py). Checked by server_name above.
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        # Overwritten, not appended: the backend trusts it for the audit log's address,
+        # so a caller's own X-Forwarded-For must not get through.
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        try_files $uri /index.html;
+    }
+}

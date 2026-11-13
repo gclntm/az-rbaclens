@@ -1,0 +1,18 @@
+# `make check` only: a throwaway Postgres (data in memory, no published port) for
+# the tests in backend/tests/pg — every migration from empty, then the app's tests.
+services:
+  pgcheck:
+    image: postgres:18-alpine
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      POSTGRES_USER: rbaclens
+      POSTGRES_PASSWORD: check-only
+      POSTGRES_DB: rbaclens_check
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rbaclens -d rbaclens_check"]
+      interval: 2s
+      timeout: 3s
+      retries: 20

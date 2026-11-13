@@ -1,0 +1,48 @@
+# Publishes the Docker Hub overview (docs/dockerhub.md) and short description
+# of both image repositories:
+#   - when docs/dockerhub.md (or this file) changes on main;
+#   - from release.yml, after a release pushes the images;
+#   - by hand (Actions → Docker Hub overview → Run workflow).
+#
+# Uses the DOCKERHUB_USERNAME / DOCKERHUB_TOKEN secrets of release.yml; the
+# token needs Read, Write & Delete (Docker Hub's overview API needs Delete).
+# Actions are pinned to a commit; the comment names its release.
+
+name: Docker Hub overview
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs/dockerhub.md
+      - .github/workflows/dockerhub-overview.yml
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dockerhub-overview
+  cancel-in-progress: false
+
+jobs:
+  overview:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - component: backend
+            summary: "RBAC Lens API: who can do what, where, since when in Azure. Read-only. Run with the frontend."
+          - component: frontend
+            summary: "RBAC Lens web interface (nginx): Azure RBAC access review. Run with the backend."
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Overview and short description
+        uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5.0.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ vars.DOCKERHUB_NAMESPACE || 'gclntm' }}/rbaclens-${{ matrix.component }}
+          short-description: ${{ matrix.summary }}
+          readme-filepath: ./docs/dockerhub.md

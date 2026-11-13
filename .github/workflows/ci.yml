@@ -1,0 +1,29 @@
+# Runs `make check` on every push to a branch and on every pull request:
+# lint (Ruff, ESLint), pytest on SQLite, pytest on a throwaway Postgres with
+# every migration, tsc and Vitest, all in containers, exactly as locally.
+# Tags are left to release.yml.
+#
+# Actions are pinned to a commit; the comment names its release.
+
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: make check
+        run: make check

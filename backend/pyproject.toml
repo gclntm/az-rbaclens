@@ -1,0 +1,59 @@
+[project]
+name = "rbaclens-backend"
+version = "0.32.0"
+description = "RBAC Lens backend"
+requires-python = ">=3.12"
+# Azure management SDKs are capped at the major the code was written against:
+# their majors rename clients and operations. Raise a cap only with a migration.
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "sqlalchemy>=2.0.36",
+    "psycopg[binary]>=3.2",
+    "alembic>=1.14",
+    "azure-identity>=1.19",
+    "azure-mgmt-authorization>=4.0,<5",
+    "azure-mgmt-managementgroups>=1.0,<2",  # 2.0 renamed ManagementGroupsAPI
+    "azure-mgmt-monitor>=6.0,<8",
+    "azure-mgmt-resource>=23.2,<24",  # 26.0 dropped ResourceManagementClient from the root
+    "azure-mgmt-subscription>=3.1,<4",
+    "cryptography>=42.0",
+    "httpx>=0.27",
+    "pyjwt[crypto]>=2.10",
+    "python-json-logger>=2.0",
+    # Optional AI wording (core/ai_wording.py); imported only when switched on.
+    "anthropic>=2.6,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.7",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# pycodestyle, pyflakes, imports, bugbear, pyupgrade, simplify, comprehensions,
+# misc pitfalls, ruff's own, returns, prints, blind excepts, bandit (security).
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "C4", "PIE", "RUF", "RET", "T20", "BLE", "S"]
+ignore = [
+  "E501",    # the formatter wraps code; long strings and comments stay as written
+  "RUF001",  # the UI's plain words use →, · and — on purpose
+  "RUF002",
+  "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106", "S108", "S311", "S608"]  # asserts, fake secrets, test SQL
+"scripts/**" = ["T201"]                                       # command-line tools print
+"alembic/**" = ["S608", "T201"]                               # migrations build SQL from fixed names
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

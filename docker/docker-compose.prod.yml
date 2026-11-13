@@ -1,0 +1,117 @@
+# Prod overlay — applied on top of ``docker-compose.yml``.
+#
+# Differences from the base:
+#   * Project name pinned to ``rbaclens-prod``.
+#   * Built artifact targets (no source mounts, no hot reload).
+#   * Only the frontend's port 80 is published, on 127.0.0.1 unless
+#     BIND_ADDRESS says otherwise; db + backend stay inside the docker
+#     network.
+#   * Restart policy: ``unless-stopped`` on every service.
+#   * DB persistent named volume.
+#   * Production-leaning env defaults (LOG_LEVEL=INFO).
+#
+# Required ``.env`` values: POSTGRES_USER, POSTGRES_PASSWORD,
+# ARM_CLIENT_ID, ARM_CLIENT_SECRET, ARM_TENANT_ID. POSTGRES_DB defaults
+# to ``rbaclens_prod`` if unset; CORS_ORIGINS to ``["http://localhost"]``.
+
+name: rbaclens-prod
+
+services:
+  db:
+    container_name: rbaclens-db-prod
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rbaclens_prod}
+      # No default password in prod: `make up prod` generates one in .env.prod.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is not set in .env.prod (make up prod generates it)}
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${POSTGRES_USER:-rbaclens} -d ${POSTGRES_DB:-rbaclens_prod}
+    volumes:
+      - db_prod_data:/var/lib/postgresql
+    restart: unless-stopped
+
+  backend:
+    container_name: rbaclens-backend-prod
+    build:
+      target: prod
+    environment:
+      STAGE: prod
+      LOG_LEVEL: INFO
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-rbaclens}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is not set in .env.prod}@db:5432/${POSTGRES_DB:-rbaclens_prod}
+      CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost"]}
+      # Email goes to Mailpit (inbox: http://localhost:8025, this machine only)
+      # until .env.prod sets NOTIFICATION_CHANNEL=email (Microsoft Graph).
+      NOTIFICATION_CHANNEL: ${NOTIFICATION_CHANNEL:-smtp}
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      NOTIFICATION_INBOX_URL: ${NOTIFICATION_INBOX_URL:-http://localhost:8025}
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost}
+      # Trust nginx's X-Forwarded-For (it sets it to the address it saw), so the
+      # audit log records the caller, not nginx. Safe because the backend
+      # isn't published: only containers on this stack's network reach it.
+      FORWARDED_ALLOW_IPS: "*"
+    restart: unless-stopped
+
+  frontend:
+    container_name: rbaclens-frontend-prod
+    build:
+      target: prod
+    environment:
+      # Host names the site answers to besides localhost, *.local and IP
+      # addresses (space-separated); anything else is dropped.
+      EXTRA_SERVER_NAMES: ${EXTRA_SERVER_NAMES:-}
+    ports:
+      # This machine only, unless .env.prod sets BIND_ADDRESS (0.0.0.0 = every
+      # network interface). See docs/deployment.md#who-can-reach-the-app.
+      - "${BIND_ADDRESS:-127.0.0.1}:80:8080"
+    restart: unless-stopped
+
+  mailpit:
+    container_name: rbaclens-mailpit-prod
+    environment:
+      # Keep captured messages across restarts (newest 500).
+      MP_DATABASE: /data/mailpit.db
+      MP_MAX_MESSAGES: "500"
+    volumes:
+      - mailpit_prod_data:/data
+    ports:
+      - "127.0.0.1:8025:8025"
+    restart: unless-stopped
+
+  # Daily pg_dump into ./backups (prod-YYYYMMDD-HHMMSS-auto.dump), newest
+  # BACKUP_KEEP kept; manual `make backup prod` files are left alone.
+  # See scripts/backup-loop.sh and docs/deployment.md#backups.
+  backup:
+    image: postgres:18-alpine
+    # The image's postgres user, not root: pg_dump needs no more. On a Linux
+    # host, ./backups must be writable by uid 70 (see docs/deployment.md).
+    user: "70:70"
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    container_name: rbaclens-backup-prod
+    entrypoint: ["/bin/sh", "/usr/local/bin/backup-loop.sh"]
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-rbaclens}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is not set in .env.prod}
+      PGDATABASE: ${POSTGRES_DB:-rbaclens_prod}
+      TZ: ${TZ:-}
+      BACKUP_HOUR: ${BACKUP_HOUR:-2}
+      BACKUP_KEEP: ${BACKUP_KEEP:-14}
+    volumes:
+      - ./backups:/backups
+      - ./scripts/backup-loop.sh:/usr/local/bin/backup-loop.sh:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  db_prod_data:
+  mailpit_prod_data:

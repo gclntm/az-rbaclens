@@ -1,0 +1,88 @@
+# Base compose file — shared between the test and prod stages.
+#
+# Always invoked together with a stage overlay
+# (``docker-compose.test.yml`` or ``docker-compose.prod.yml``) through the
+# Makefile (``make <command> test|prod``). Overlays add stage-specific
+# ports, volumes, build targets, restart policies, container names and the
+# project ``name``.
+#
+# All env vars are referenced as ``${X:-<default>}`` so the base alone
+# is enough to start the stack — defaults match the historical test
+# values. Production should set the real values in ``.env``.
+
+# Container logs: rotated, at most 5 files of 10 MB per container. Docker
+# Desktop rotates by default; Docker on Linux keeps everything unless told.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+# No process in a container may gain privileges it did not start with
+# (setuid binaries, file capabilities).
+x-hardening: &hardening
+  - no-new-privileges:true
+
+services:
+  db:
+    logging: *logging
+    security_opt: *hardening
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-rbaclens}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rbaclens}
+      POSTGRES_DB: ${POSTGRES_DB:-rbaclens_test}
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${POSTGRES_USER:-rbaclens} -d ${POSTGRES_DB:-rbaclens_test}
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    logging: *logging
+    security_opt: *hardening
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-rbaclens}:${POSTGRES_PASSWORD:-rbaclens}@db:5432/${POSTGRES_DB:-rbaclens_test}
+      ARM_CLIENT_ID: ${ARM_CLIENT_ID:-}
+      ARM_CLIENT_SECRET: ${ARM_CLIENT_SECRET:-}
+      ARM_TENANT_ID: ${ARM_TENANT_ID:-}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      # Optional corporate CA bundle for outbound TLS. Set to the
+      # in-container path; add a matching bind-mount under the stage
+      # overlay's ``volumes:`` to make the host file available.
+      # See docs/deployment.md#corporate-tls--proxy-ca.
+      REQUESTS_CA_BUNDLE: ${REQUESTS_CA_BUNDLE:-}
+      # Extra host names the app answers to (the frontend's nginx reads the
+      # same variable in prod); see app/core/request_guard.py.
+      EXTRA_SERVER_NAMES: ${EXTRA_SERVER_NAMES:-}
+      # Time zone of the daily check (06:00 container time). Unset = UTC.
+      TZ: ${TZ:-}
+      # Email notifications (docs/deployment.md#email-notifications). Empty = off.
+      NOTIFICATION_CHANNEL: ${NOTIFICATION_CHANNEL:-}
+      NOTIFICATION_SENDER: ${NOTIFICATION_SENDER:-}
+      NOTIFICATION_ADMIN_EMAIL: ${NOTIFICATION_ADMIN_EMAIL:-}
+      PUBLIC_URL: ${PUBLIC_URL:-}
+      # AI wording: new texts per day at most (0 = no limit).
+      AI_DAILY_LIMIT: ${AI_DAILY_LIMIT:-200}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Catches every email the app sends and shows it in a web inbox
+  # (Mailpit); nothing leaves the machine. See docs/deployment.md.
+  mailpit:
+    logging: *logging
+    security_opt: *hardening
+    image: axllent/mailpit:v1.33.1
+
+  frontend:
+    logging: *logging
+    security_opt: *hardening
+    build:
+      context: ./frontend
+    depends_on:
+      - backend

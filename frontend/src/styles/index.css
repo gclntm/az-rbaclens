@@ -1,0 +1,51 @@
+/*
+ * One entry for every stylesheet, in cascade-layer order (docs/plan-untitled-ui.md).
+ *
+ * - theme: Tailwind CSS v4's and Untitled UI's tokens; tokens.css maps Untitled
+ *   UI's semantic colours onto our variables, so both themes follow data-theme.
+ * - base: Tailwind's reset (preflight), for every element.
+ * - elements: our variables and element defaults (page font, links, focus ring,
+ *   form fields, print), above the reset and below every class.
+ * - utilities: Tailwind utilities. The markup is styled with them and with the
+ *   shared class strings in components/classes.ts; there is no other CSS apart
+ *   from the report's @page rule (pages/report/report.css).
+ *
+ * Our own variables are named --app-* where Tailwind or Untitled UI use the
+ * same name (fonts, shadows, small radii).
+ */
+@layer theme, base, elements, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "./elements.css" layer(elements);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@import "../ui/untitled/styles/theme.css";
+@import "./tokens.css";
+
+/* Every source file is scanned for Tailwind classes (phase 7: the pages move off
+   the old CSS). The three old class names Tailwind also knows (sr-only, table,
+   text-secondary) are converted or harmless. */
+@source "../";
+
+@plugin "tailwindcss-react-aria-components";
+@plugin "tailwindcss-animate";
+
+/* Dark mode follows the class our ThemeProvider sets on <html>. */
+@custom-variant dark (&:where(.dark-mode, .dark-mode *));
+@custom-variant label (& [data-label]);
+@custom-variant focus-input-within (&:has(input:focus));
+
+/* Two utilities from Untitled UI's globals.css that its components use. */
+@utility scrollbar-hide {
+  &::-webkit-scrollbar {
+    display: none;
+    -webkit-appearance: none;
+  }
+  scrollbar-width: none;
+}
+
+@utility transition-inherit-all {
+  transition-property: inherit;
+  transition-duration: inherit;
+  transition-timing-function: inherit;
+}

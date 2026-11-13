@@ -1,0 +1,63 @@
+# Dependabot: weekly pull requests that update dependencies, on `dev` (where
+# work happens; `main` only moves at a release). CI runs `make check` on each.
+#
+# Covered: the frontend's npm packages, the Docker base images (Dockerfiles
+# and compose files) and the GitHub Actions (pinned to a commit, with the
+# release in a comment, which Dependabot updates together).
+#
+# Not covered: the backend's Python packages. Their lockfiles are generated
+# with hashes by `make lock` (uv pip compile), which Dependabot can't redo;
+# run `make lock` instead (docs/development.md#lockfiles).
+
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /frontend
+    target-branch: dev
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(frontend)"
+    groups:
+      # Minor and patch updates together; each major version on its own.
+      frontend-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: docker
+    directories: [/backend, /frontend]
+    target-branch: dev
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "deps(images)"
+    groups:
+      base-images:
+        patterns: ["*"]
+
+  - package-ecosystem: docker-compose
+    directory: /docker
+    target-branch: dev
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "deps(compose)"
+    groups:
+      compose-images:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "deps(actions)"
+    groups:
+      actions:
+        patterns: ["*"]

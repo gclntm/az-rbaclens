@@ -1,0 +1,49 @@
+import type { GrantOrigin } from "@/api/client";
+
+/** The Grant page for a grant id (stable across daily checks). */
+export function grantHref(grantId: string): string {
+  return `/grants/${encodeURIComponent(grantId)}`;
+}
+
+export function formatDay(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+}
+
+/** "sp-terraform (app)", "alice@example.com", or a neutral phrase when only the id is known. */
+export function givenByLabel(origin: GrantOrigin): string | null {
+  if (origin.given_by_name) {
+    return origin.given_by_type === "ServicePrincipal" ? `${origin.given_by_name} (app)` : origin.given_by_name;
+  }
+  return origin.given_by_id ? "an identity RBAC Lens has not named" : null;
+}
+
+/**
+ * "Since 3 Nov 2026, by sp-terraform (app)" · "Since 3 Nov 2026" · "Given by alice" ·
+ * null when Azure recorded nothing.
+ */
+export function originText(origin: GrantOrigin): string | null {
+  const by = givenByLabel(origin);
+  if (origin.since) return `Since ${formatDay(origin.since)}${by ? `, by ${by}` : ""}`;
+  return by ? `Given by ${by}` : null;
+}
+
+/** Whole days between ``iso`` and ``now``, never negative. */
+export function daysAgo(iso: string, now: Date = new Date()): number {
+  return Math.max(0, Math.floor((now.getTime() - new Date(iso).getTime()) / 86_400_000));
+}
+
+export function agoText(iso: string, now: Date = new Date()): string {
+  const d = daysAgo(iso, now);
+  if (d === 0) return "today";
+  if (d === 1) return "yesterday";
+  return `${d} days ago`;
+}
+
+/**
+ * What the Activity Log says about an identity's last change. Azure never
+ * records reads, so "no change" is a fact to know, not proof of disuse.
+ */
+export function lastChangeText(lastActivityAt: string | null | undefined, now: Date = new Date()): string {
+  if (!lastActivityAt) return "No change recorded (reads are not recorded)";
+  return `Last change ${agoText(lastActivityAt, now)}`;
+}

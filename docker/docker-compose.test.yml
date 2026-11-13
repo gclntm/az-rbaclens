@@ -1,0 +1,63 @@
+# Test overlay — applied on top of ``docker-compose.yml``.
+#
+# Differences from the base:
+#   * Project name pinned to ``rbaclens-test`` so containers don't
+#     collide with a prod stack on the same host.
+#   * Dev build targets so hot-reload entrypoints (uvicorn --reload,
+#     vite dev) run.
+#   * Source bind-mounts for hot reload.
+#   * DB + backend ports exposed for ad-hoc psql / curl from the host —
+#     on 127.0.0.1 only, like every test port: nothing is reachable from
+#     the network.
+#   * Looser env defaults (LOG_LEVEL=DEBUG).
+
+name: rbaclens-test
+
+services:
+  db:
+    container_name: rbaclens-db-test
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - db_test_data:/var/lib/postgresql
+
+  backend:
+    container_name: rbaclens-backend-test
+    build:
+      target: dev
+    environment:
+      STAGE: test
+      LOG_LEVEL: DEBUG
+      CORS_ORIGINS: '["http://localhost:5173"]'
+      # Email goes to Mailpit (inbox: http://localhost:8026) unless .env.test says otherwise.
+      NOTIFICATION_CHANNEL: ${NOTIFICATION_CHANNEL:-smtp}
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      NOTIFICATION_ADMIN_EMAIL: ${NOTIFICATION_ADMIN_EMAIL:-admins@rbaclens.test}
+      NOTIFICATION_INBOX_URL: ${NOTIFICATION_INBOX_URL:-http://localhost:8026}
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:5173}
+    volumes:
+      - ./backend:/app
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  frontend:
+    container_name: rbaclens-frontend-test
+    build:
+      target: dev
+    environment:
+      VITE_API_URL: http://backend:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "127.0.0.1:5173:5173"
+
+
+  mailpit:
+    container_name: rbaclens-mailpit-test
+    ports:
+      - "127.0.0.1:8026:8025"
+
+volumes:
+  db_test_data:

@@ -1,0 +1,213 @@
+/* The app's base layer (docs/plan-untitled-ui.md, phase 7): its colour and size
+   variables for both themes (tokens.css maps Untitled UI's tokens onto them), and
+   the element defaults: page font, links, focus ring, form fields. It sits in the
+   lowest cascade layer, below everything that styles by class. */
+:root {
+  --app-font-body: "Inter", system-ui, -apple-system, sans-serif;
+  --app-font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  --radius: 8px;
+  --app-radius-sm: 4px;
+  --app-radius-xs: 2px;
+
+  --app-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --app-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
+  --app-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+  --focus-ring: 0 0 0 3px rgba(59, 130, 246, 0.5);
+}
+
+[data-theme="dark"] {
+  --bg-root: #080b14;
+  --bg-surface: #111827;
+  --bg-card: #1b243a;
+  --bg-card-hover: #212d45;
+  /* Blocks stand out from the page: their own border, and the shade of a table's header row. */
+  --border-card: #33466a;
+  --bg-table-head: #141c2f;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5);
+  /* Links: the browser's default blue is unreadable on dark blocks. */
+  --link: #93c5fd;
+  --link-visited: #c4b5fd;
+  --bg-input: #0f172a;
+  --bg-header: rgba(8, 11, 20, 0.85);
+  --border: #1e2d45;
+  --border-focus: #3b82f6;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  /* Readable on blocks, the page and a hovered row: 4.8:1 at the least. */
+  --text-muted: #8a9aae;
+
+  --accent-blue: #60a5fa;
+  --accent-green: #34d399;
+  --accent-orange: #fbbf24;
+  --accent-red: #f87171;
+  --accent-purple: #a78bfa;
+  --accent-pink: #f472b6;
+
+  --accent-blue-subtle: rgba(96, 165, 250, 0.1);
+  --accent-red-subtle: rgba(248, 113, 113, 0.12);
+  --accent-green-subtle: rgba(52, 211, 153, 0.12);
+  --accent-orange-subtle: rgba(251, 191, 36, 0.12);
+  --accent-purple-subtle: rgba(167, 139, 250, 0.12);
+
+  /* Text on a solid accent (a primary button, a chosen decision): the light accents need dark text. */
+  --on-accent: #0b1220;
+
+  --chip-bg: #1e293b;
+  --chip-active-bg: #1e3a5f;
+  --chip-active-border: #3b82f6;
+}
+
+[data-theme="light"] {
+  --bg-root: #e6ebf2;
+  --bg-surface: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f8fafc;
+  /* Blocks stand out from the page: their own border, and the shade of a table's header row. */
+  --border-card: #b9c4d3;
+  --bg-table-head: #eef2f7;
+  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.1);
+  --link: #1d4ed8;
+  --link-visited: #6d28d9;
+  --bg-input: #f1f5f9;
+  --bg-header: rgba(230, 235, 242, 0.85);
+  --border: #e2e8f0;
+  --border-focus: #2563eb;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  /* Readable on blocks and on the darker page: 5.7:1 on white, 4.8:1 on the page. */
+  --text-muted: #5b6779;
+
+  /* Dark enough to be read as text, on a block and on its own tint (4.5:1 at the least). */
+  --accent-blue: #1d4ed8;
+  --accent-green: #047857;
+  --accent-orange: #a85007;
+  --accent-red: #b91c1c;
+  --accent-purple: #7c3aed;
+  --accent-pink: #db2777;
+
+  --accent-blue-subtle: rgba(37, 99, 235, 0.08);
+  --accent-red-subtle: rgba(220, 38, 38, 0.1);
+  --accent-green-subtle: rgba(5, 150, 105, 0.1);
+  --accent-orange-subtle: rgba(217, 119, 6, 0.1);
+  --accent-purple-subtle: rgba(124, 58, 237, 0.1);
+
+  --on-accent: #ffffff;
+
+  --chip-bg: #f1f5f9;
+  --chip-active-bg: #dbeafe;
+  --chip-active-border: #2563eb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Themed, underlined links in page content. :where keeps the specificity at
+   zero, so buttons and menu items styled as links keep their own colour. Inside
+   Untitled UI's parts (React Aria elements, .uui regions) links inherit, as
+   Tailwind's reset has them. */
+:where(a:not(:is([data-rac], [data-rac] *, .uui, .uui *))) { color: var(--link); text-decoration: underline; }
+:where(a:visited:not(:is([data-rac], [data-rac] *, .uui, .uui *))) { color: var(--link-visited); }
+
+html {
+  font-size: 16px;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-root);
+  color: var(--text-primary);
+  font-family: var(--app-font-body);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+[data-theme="dark"] body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: 0.01em;
+  line-height: 1.65;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Form fields in Untitled UI's input look (its "sm" input: 36px, 14px text, an
+   8px corner, a light shadow, a brand ring on focus), docs/plan-untitled-ui.md
+   phase 3. The fields stay native; contexts below set only their size. */
+input[type="text"],
+input[type="search"],
+input[type="number"],
+input[type="password"],
+input[type="email"],
+input:not([type]),
+select {
+  min-height: 36px;
+  padding: 7px 12px;
+  font-size: 0.875rem;
+  font-family: var(--app-font-body);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-card, var(--border));
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(10, 13, 18, 0.05);
+  line-height: normal;
+}
+
+input::placeholder { color: var(--text-muted); }
+
+input:focus,
+select:focus {
+  border-color: var(--color-border-brand);
+  box-shadow: 0 0 0 1px var(--color-border-brand);
+  outline: none;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--color-brand-600);
+}
+
+/* The indeterminate progress bar (animate-[progress-slide_…] in the pages). */
+@keyframes progress-slide {
+  0% { margin-left: -35%; }
+  100% { margin-left: 100%; }
+}
+
+/* Inside Untitled UI's parts (React Aria elements and .uui regions) the focus
+   ring is their 2px outline, not the box-shadow above; elements without their
+   own focus classes get the same outline. :is() keeps this above the global rule. */
+:is([data-rac], [data-rac] *, .uui, .uui *):focus-visible {
+  box-shadow: none;
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Printing: white paper, black text (pages add their own print: classes). */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+}
