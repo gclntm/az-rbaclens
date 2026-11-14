@@ -18,7 +18,8 @@ ADMINS = "44444444-4444-4444-4444-444444444444"
 KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
 
-def _token(kid: str = "k1", key=KEY, **over) -> str:
+def _token(kid: str = "k1", key=KEY, exp_in: int = 3600, **over) -> str:
+    """A token signed with ``key``; ``exp_in`` is seconds from now, counted when it is made."""
     now = int(time.time())
     claims = {
         "iss": f"https://login.microsoftonline.com/{TENANT}/v2.0",
@@ -26,7 +27,7 @@ def _token(kid: str = "k1", key=KEY, **over) -> str:
         "azp": CLIENT,
         "iat": now,
         "nbf": now,
-        "exp": now + 3600,
+        "exp": now + exp_in,
         "oid": "ada-oid",
         "scp": "User.Read",
         "preferred_username": "ada@example.org",
@@ -59,8 +60,10 @@ def test_a_persons_token_from_this_app_is_accepted(keys):
 @pytest.mark.parametrize(
     ("over", "reason"),
     [
-        ({"exp": int(time.time()) - 30}, None),  # 30 s late: within the minute allowed
-        ({"exp": int(time.time()) - 120}, "expired"),
+        # Offsets, not times: parameters are built when the tests are collected,
+        # which can be well before this test runs.
+        ({"exp_in": -30}, None),  # 30 s late: within the minute allowed
+        ({"exp_in": -120}, "expired"),
         ({"aud": "33333333-3333-3333-3333-333333333333"}, "audience"),
         ({"iss": "https://login.microsoftonline.com/other/v2.0"}, "issuer"),
         ({"azp": "55555555-5555-5555-5555-555555555555"}, "another app"),
