@@ -8,22 +8,22 @@ the last step of phase 5.
 
 ## What the review found, in short
 
-- **Data pipeline.** Works, but fails quietly in four ways: a check that
+- **Data pipeline:** works, but fails quietly in four ways: a check that
   loses its connection midway is still recorded as complete; a failed daily
   check waits 24 hours to retry; a restart leaves jobs blocked for an hour;
   and every hourly collection recomputes all findings, even with nothing new.
-- **Activity Log.** It dwarfs everything else in the database, grants
+- **Activity Log:** it dwarfs everything else in the database, grants
   included. Most events are two automatic heartbeat operations, and a
   large share of all rows are "Started" duplicates of a later
   "Succeeded". Only a small fraction of the events come from people.
-- **Schedules page.** Shows frequency, next and last run, but a schedule
+- **Schedules page:** shows frequency, next and last run, but a schedule
   can't be edited, "Pause" is one unconfirmed click beside "Run now", the
   page doesn't show its own warnings, and failures scroll out of the newest
   50 runs within hours.
-- **Security.** No secret in the tree or in history. But a fresh
+- **Security:** no secret in the tree or in history. But a fresh
   `make up prod` gives an open admin console on every network interface,
   and a few sign-in checks fail open.
-- **Publishing.** The tree and its history held details of the tenant
+- **Publishing:** the tree and its history held details of the tenant
   the app was developed against, and there was no licence.
 
 ## Phase 1: checks, Activity Log and schedules

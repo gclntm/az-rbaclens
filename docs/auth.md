@@ -1,15 +1,15 @@
 # Authentication
 
-This app supports optional sign-in with **Microsoft Entra ID** (Azure
+This app supports optional sign-in with Microsoft Entra ID (Azure
 AD). When enabled, every API call requires a valid access token issued
 for the configured app registration; the SPA uses MSAL.js to acquire
 the token and the FastAPI backend validates it against the tenant's
 JWKS.
 
-Auth is **off by default** — the app keeps working unauthenticated
+Auth is off by default: the app keeps working unauthenticated
 until you flip the toggle in Settings → Authentication. Useful for
-dev / test, less useful in shared production: see the warning at the
-bottom of this page.
+dev / test, less useful in shared production: see the warning under
+[Disabling auth](#disabling-auth).
 
 ## How the pieces fit together
 
@@ -58,7 +58,7 @@ Under **API permissions** → **Add a permission** →
 **Microsoft Graph** → **Delegated** → `User.Read`.
 
 That's enough to issue tokens. The backend only validates the
-signature + audience; it does **not** call Graph on the user's
+signature + audience; it does not call Graph on the user's
 behalf.
 
 ### 3. (Optional) Restrict by group
@@ -180,7 +180,7 @@ front (see [`docs/deployment.md`](deployment.md#reverse-proxy--tls)).
 ## Audit log
 
 Every mutating call to `/api/*` (POST / PUT / PATCH / DELETE) records a
-row in the `audit_events` table — `occurred_at`, `actor` (principal
+row in the `audit_events` table: `occurred_at`, `actor` (principal
 GUID from the JWT, or `anonymous` when auth is off), `actor_name`
 (display name / UPN when available), `client_ip` (the address the call
 came from), HTTP method, path, and the response status. Read-only GETs
@@ -203,7 +203,7 @@ for:
 * Investigating "did this scan get deleted on purpose?"
   (`DELETE /api/iam-access/scans/<id>`).
 
-Body content is **not** captured — payloads can contain secrets. For
+Body content is not captured: payloads can contain secrets. For
 "the secret changed at this time" you can infer it from the existence
 of the `PUT /api/settings/credentials` row.
 

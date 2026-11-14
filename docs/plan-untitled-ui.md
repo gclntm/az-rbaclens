@@ -7,7 +7,7 @@ navigation, tiles, cards, tables, badges, tabs, drawers, forms, charts)
 from [Untitled UI React](https://www.untitledui.com/react), and keep
 switching between light, dark and the system theme.
 
-This sits **before phase 5 of [plan-before-github.md](plan-before-github.md)**
+This sits before phase 5 of [plan-before-github.md](plan-before-github.md)
 (publish). The README screenshots should show the new look, and the
 licence questions below belong to the same public/private decision.
 
@@ -47,25 +47,25 @@ repository stays private and someone buys a licence.
 
 ## 3. Decisions (yours)
 
-1. **How far.** *(a)* Home and the dashboard-like pages only, or *(b)*
-   the whole interface, page by page. **Recommended: (b)**, through
+1. **How far:** *(a)* Home and the dashboard-like pages only, or *(b)*
+   the whole interface, page by page. Recommended: (b), through
    `PageTemplate` first, so the app doesn't end up with two looks.
-2. **Brand colour.** Keep today's blue as Untitled UI's brand scale, or
+2. **Brand colour:** keep today's blue as Untitled UI's brand scale, or
    pick another. Recommended: keep it.
-3. **Icons.** Replace our hand-drawn `NavIcon` set with
+3. **Icons:** replace our hand-drawn `NavIcon` set with
    `@untitledui/icons`, or keep ours. Recommended: replace, for one style.
-4. **Charts.** Add charts where they help: changes per week on Home,
+4. **Charts:** add charts where they help: changes per week on Home,
    Activity Log coverage, the report's trend against a saved assessment.
    This adds `recharts` (loaded only on pages that draw a chart).
    Recommended: yes, in phase 5 below, after the rest.
-5. **Free only.** Recommended: MIT components only, so phase 5 of the
+5. **Free only:** MIT components only (recommended), so phase 5 of the
    GitHub plan can publish them. Revisit only if the repository stays
    private.
 
 ## 4. Phases
 
 Each phase is its own release, checked on the test stack in light, dark
-and at phone width, **and on the built nginx image** (the CSP only
+and at phone width, and on the built nginx image (the CSP only
 applies there, and the dev server hid the 0.19.1 font bug).
 
 ### Phase 0: a spike, thrown away if it fails (S)
@@ -73,7 +73,7 @@ applies there, and the dev server hid the 0.19.1 font bug).
 On the test stack, uncommitted on `dev` until it passes:
 
 - Add Tailwind v4 (`tailwindcss`, `@tailwindcss/vite`) and the npm
-  packages Untitled UI needs. **Load Tailwind without its preflight reset**
+  packages Untitled UI needs. Load Tailwind without its preflight reset
   during the migration, so it doesn't fight `shared.css`'s global
   `input`/`select`/`button` rules (and the other way round). Preflight
   comes back in phase 6, when the old CSS is gone.
@@ -87,7 +87,7 @@ On the test stack, uncommitted on `dev` until it passes:
     exclusion;
   - the `dark-mode` class works with our toggle;
   - the CSP on the nginx image: no blocked style or font;
-  - **bundle size before and after** (0.26.0 was a performance release).
+  - bundle size before and after (0.26.0 was a performance release).
 - **Done when** one real page (To do) renders with the three components
   in both themes, `make check` passes, and the size cost is known. If the
   cost or the conflicts are too high, stop and report.
@@ -158,16 +158,16 @@ to the cards.
 
 ### Phase 1: foundations (M)
 
-- **Theme bridge.** Keep our `ThemeProvider` and its storage key, so
+- **Theme bridge:** keep our `ThemeProvider` and its storage key, so
   people keep their choice. It sets `dark-mode` on `<html>` next to
   `data-theme`. No second provider.
-- **Tokens.** Map our tokens onto Untitled UI's variables in one file.
+- **Tokens:** map our tokens onto Untitled UI's variables in one file.
   Our meanings must survive in both themes:
   - the five capability colours (change access, keys, change, data, view);
   - advice weights (must / should / could);
   - control statuses (met / partly / not met);
   - finding severities and state pills.
-- **Font.** Point `--font-inter` at the Inter we host; keep JetBrains
+- **Font:** point `--font-inter` at the Inter we host; keep JetBrains
   Mono for ids and commands.
 - **Icons** (if decision 3 is yes): swap `NavIcon` for `@untitledui/icons`.
 - **Done when** the app looks the same as today but reads its colours
@@ -179,7 +179,7 @@ Decisions: the whole interface, our blue as the brand colour, Untitled UI
 icons, charts later (phase 5). Phase 0's size cost accepted, with the bundle
 split by page to win it back.
 
-- **A scoped reset (new, found in this phase).** Without Tailwind's reset,
+- **A scoped reset (new, found in this phase):** without Tailwind's reset,
   Untitled UI's components fell back on browser defaults:
   - table rows were 126px high instead of 56px (paragraph margins);
   - buttons used Arial with an "outset" border.
@@ -332,7 +332,7 @@ split by page to win it back.
 
 #### Phase 3, slice 1 results (2026-11-13): header, breadcrumbs, tiles, cards, pills
 
-- **One place for the look.** `components/PageTemplate.tsx` styles all of
+- **One place for the look:** `components/PageTemplate.tsx` styles all of
   these with Untitled UI classes:
   - `PageHeader` (title, badges, one line, actions, a back link, extra
     lines below), now used by all 19 pages that had a hand-written header;
@@ -637,7 +637,7 @@ Page by page, each one checked before the next:
 The request: remove the old CSS and verify that everything is handled
 with Untitled UI.
 
-**What "handled with Untitled UI" can mean here.** The free repo has no
+**What "handled with Untitled UI" can mean here:** the free repo has no
 component for the place tree, the review, finding and grant cards, or the
 report. Those become Tailwind utilities on Untitled UI's tokens. The
 result falls into three buckets:

@@ -30,7 +30,7 @@ History and decisions: [plan-untitled-ui.md](plan-untitled-ui.md).
 - **A page reads top to bottom:** title and one sentence, up to three status
   tiles, a banner only when something needs doing, then sections (cards with an
   icon, a title and one line of explanation).
-- **Both themes always.** Every colour comes from a token that switches with the
+- **Both themes always:** every colour comes from a token that switches with the
   theme; nothing is hardcoded.
 
 ---
@@ -166,7 +166,7 @@ the edge that has more).
 - **Never build a class name from a template string** (`badge-${level}`):
   Tailwind only sees literal strings. Use a `Record` of full class strings
   (`BADGE_LEVEL`, `WHO_ACCENT`, `SEV_DOT_TONE`…).
-- **No hardcoded colours.** Use the utilities above or `prop-(--variable)`; a new
+- **No hardcoded colours:** use the utilities above or `prop-(--variable)`; a new
   colour is a new variable in both themes in `elements.css`.
 - **Inside Untitled UI parts** (React Aria elements, `.uui` regions) links inherit
   their colour; in page content they are underlined in `--link`.

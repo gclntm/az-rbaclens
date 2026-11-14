@@ -45,18 +45,18 @@ is typed in: pick **Other: type a GUID or path…** and enter one of:
 | `/subscriptions/<guid>/resourceGroups/rg-prod`        | resource group |
 | `/subscriptions/<guid>/resourceGroups/<rg>/providers/Microsoft.Storage/storageAccounts/<name>` | resource |
 
-A check **fails** when its root can't be read: a management group that
+A check fails when its root can't be read: a management group that
 doesn't exist or the identity can't see, a subscription not in its
 visible list, or any root whose role assignments can't be listed
 (`ScopeUnreachable: …`). Below the root, it depends on what Azure says:
 
-- **Refused (403).** The place is skipped and flagged `unread`. Its own
+- **Refused (403):** the place is skipped and flagged `unread`. Its own
   grants are unknown, not absent: the last check that read it stays its
   owner, and the changes feed reports nothing as removed there.
-- **Gone (404).** Skipped; it was deleted while the walk ran.
+- **Gone (404):** skipped; it was deleted while the walk ran.
 - **No answer** (network or proxy failure, throttling after retries, a
   server error, a failed sign-in), from Azure or from Microsoft Graph: the
-  check **fails** with `ScanInterrupted: …` or `GraphUnavailable: …` and
+  check fails with `ScanInterrupted: …` or `GraphUnavailable: …` and
   saves nothing, so unread places are never recorded as empty. A
   scheduled check is tried again after 15 minutes.
 

@@ -6,11 +6,11 @@ resource) and shows every place, every person or app, and every grant:
 what it allows, where, since when and who gave it. It compares each
 check with the one before, so it can tell who got or lost access.
 
-The app answers one question in plain words: **who can do what, where,
-and since when**. It runs a daily check of the whole tenant, keeps a feed
+The app answers one question in plain words: who can do what, where,
+and since when. It runs a daily check of the whole tenant, keeps a feed
 of changes, and names a responsible person who reviews each place every
 month ([`docs/plan-who-can-do-what.md`](docs/plan-who-can-do-what.md),
-shipped). It also says **what to do about it**: advice on every grant, a
+shipped). It also says what to do about it: advice on every grant, a
 to-do list after each review, and an assessment report mapped to
 ISO/IEC 27001 ([`docs/plan-advice-and-report.md`](docs/plan-advice-and-report.md), shipped).
 RBAC Lens only reads Azure: it uses a read-only service principal
@@ -97,8 +97,8 @@ index of features, routes, tables and env vars is
 
 ## Commands
 
-Everything goes through the `Makefile` — `make <command> <test|prod>`; the
-environment word is required, nothing defaults to prod
+Everything goes through the `Makefile` as `make <command> <test|prod>`. The
+environment word is required; nothing defaults to prod
 ([recipe](docs/README-MAKE.md)):
 
 ```bash

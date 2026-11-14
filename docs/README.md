@@ -82,21 +82,21 @@ each, resolves who the identities are through Microsoft Graph, and keeps
 the result. Every hour it collects each subscription's Activity Log.
 Then the UI lets you:
 
-- See **who can do what** on each place, in five plain capability
+- See who can do what on each place, in five plain capability
   levels, with grants given here, inherited from above, and given inside.
-- Follow the **changes**: who got or lost access, when, and who did it.
-- Run **monthly reviews**: the person responsible for a place decides
+- Follow the changes: who got or lost access, when, and who did it.
+- Run monthly reviews: the person responsible for a place decides
   Keep / Remove / Change / Ask for each grant, starting from a suggested
-  decision. Finishing a review turns removals and changes into **to-dos**
+  decision. Finishing a review turns removals and changes into to-dos
   that the next checks close.
-- Read **advice** on every grant and identity ("What to do"), from fixed
+- Read advice on every grant and identity ("What to do"), from fixed
   rules, with optional AI wording.
-- Work through what **needs a look** (findings) across the tenant.
-- Look up a **person or app** and every place they hold a role, directly
+- Work through what needs a look (findings) across the tenant.
+- Look up a person or app and every place they hold a role, directly
   or through a group, and what they actually did.
-- Browse the **Role guide**: every role seen, what it allows, where it is
+- Browse the Role guide: every role seen, what it allows, where it is
   used, and why a role is risky.
-- Print an **assessment report** mapped to ISO/IEC 27001:2022.
+- Print an assessment report mapped to ISO/IEC 27001:2022.
 - Run the app itself: schedules and recent runs (Data & schedules),
   responsible people, notifications, sign-in, credentials (encrypted at
   rest), the audit log and database maintenance (Settings).

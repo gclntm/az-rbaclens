@@ -15,8 +15,8 @@
 
 One entry point, the `Makefile` at the repo root, on the Makefile recipe
 ([README-MAKE.md](README-MAKE.md)): `make <command> <test|prod>`, and
-`make` alone lists the commands. The environment word is **required** for
-every stack command — `make up` without it refuses — so nothing reaches
+`make` alone lists the commands. The environment word is required for
+every stack command (`make up` without it refuses), so nothing reaches
 prod by accident.
 
 ```bash
@@ -35,7 +35,7 @@ make lint                        # Ruff rules + format check, ESLint
 
 ### First run
 
-`make up test` does what used to be manual:
+`make up test`:
 
 1. creates `.env.test` from `.env.test.example` if it's missing;
 2. generates `ENCRYPTION_KEY` (a Fernet key) when it's empty — it
@@ -98,10 +98,10 @@ make check ARGS="-k pim -x"      # extra pytest args (the SQLite run)
 On GitHub, `.github/workflows/ci.yml` runs the same `make check` on every
 push to a branch and on every pull request (the **Actions** tab). It runs:
 
-1. **Lint.** Ruff with the rule set in `backend/pyproject.toml` and its
+1. **Lint:** Ruff with the rule set in `backend/pyproject.toml` and its
    format check (`ruff format` fixes it); ESLint with TypeScript's, React
    hooks' and accessibility (jsx-a11y) rules (`frontend/eslint.config.js`).
-2. **pytest on SQLite.** The `app_with_sqlite` fixture in
+2. **pytest on SQLite:** the `app_with_sqlite` fixture in
    [`backend/tests/conftest.py`](../backend/tests/conftest.py) boots the app
    on an in-memory SQLite, with real Azure / Microsoft Graph calls
    monkey-patched out.
@@ -158,8 +158,8 @@ alembic revision --autogenerate -m "describe the change"
 ```
 
 Review the generated file under
-[`backend/alembic/versions/`](../backend/alembic/versions/) — autogenerate
-catches column changes well, but always read the diff — then
+[`backend/alembic/versions/`](../backend/alembic/versions/) (autogenerate
+catches column changes well, but always read the diff), then
 `make migrate test`.
 
 ### Backup, restore, reset

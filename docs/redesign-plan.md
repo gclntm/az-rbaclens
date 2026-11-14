@@ -127,12 +127,12 @@ All six shipped in migration `0016` (2026-10-22):
   same `event_data_id` → unique violation → bug 1. Add partial unique
   indexes: `scans(scope) WHERE status IN ('pending','running')` and
   `activity_pulls(subscription_id) WHERE status IN ('pending','running')`.
-- [x] **ORM cascade delete.** `delete_scan` uses `session.delete` with
+- [x] **ORM cascade delete:** `delete_scan` uses `session.delete` with
   `cascade="all, delete-orphan"` and no `passive_deletes`
   (`api/iam_access.py:289-291`, `db/models.py:56-58`): a 50 k-RA scan is
   a 50 k-row SELECT (with `raw`) plus 50 k DELETEs under lock. Set
   `passive_deletes=True`; the FKs already cascade.
-- [x] **Sweeper vs long worker.** Scans > `stuck_scan_timeout_seconds`
+- [x] **Sweeper vs long worker:** scans > `stuck_scan_timeout_seconds`
   are flipped to `failed` while still running; the worker later writes
   `done` over it. Have the worker heartbeat `progress_message`/
   `updated_at` and sweep on staleness, not age.
@@ -161,11 +161,11 @@ All six shipped in migration `0016` (2026-10-22):
   the other side is the GUID, and every lookup strips it in Python
   (`api/iam_access.py:124-126, 504, 598`).
 - [ ] *(Measured 2026-10-22: small at today's volume; `CurrentView` defers it.
-  Not worth a migration yet — revisit at ~100 k RAs.)* **Drop
+  Not worth a migration yet; revisit at ~100 k RAs.)* **Drop
   `role_assignments.raw`.** No endpoint reads it; at ~1 KB it
   sits inline (below TOAST) and inflates every seq scan and ORM load.
   Keep Azure's assignment id in a real column (`azure_id`) with a unique
-  `(scan_id, azure_id)` index — dedupe is currently in-memory only.
+  `(scan_id, azure_id)` index; dedupe is currently in-memory only.
 - [x] **Trim `activity_events.raw`** — shipped in `0022`: `caller_oid`
   column + `(caller_oid, occurred_at)` index; `raw` slimmed in place
   (`app/core/activity_payload.py`), which shrank the table substantially. Original note: only `claims.oid` is read
@@ -191,7 +191,7 @@ All six shipped in migration `0016` (2026-10-22):
   replace the manual Events pull form. *Shipped differently from the
   draft:* an interval instead of `cron` (every use so far is "every N
   hours"), and `GET /jobs` merges `scans` + `activity_pulls` instead of
-  a generalised `jobs` table — both already carry status, heartbeat and
+  a generalised `jobs` table; both already carry status, heartbeat and
   error, and the in-flight unique indexes guard them.
 - [ ] **`jobs` table** — generalise `scans` + `activity_pulls` status
   columns (`attempt`, `not_before` for retry with backoff). Only worth
@@ -219,7 +219,7 @@ for data that needs them. The volume was all in `activity_events`.*
   and filters by GUID in Python (`:547-627`). Rewrite as
   `COUNT(DISTINCT …) GROUP BY` / `WHERE role_definition_id = …`.
 - [x] Events export streams (server-side cursor, 5 k-row chunks, never
-  `raw`). `GET /scans/{id}/role-assignments` still has no LIMIT — fast and
+  `raw`). `GET /scans/{id}/role-assignments` still has no LIMIT: it is fast and
   small even for the largest snapshot, so it waits.
 - [ ] Progress updates are 3 round-trips per scope (commit → expire →
   reload; `tools/iam_access.py:102-106`). Batch every 25 scopes and use
@@ -228,7 +228,7 @@ for data that needs them. The volume was all in `activity_events`.*
   role-definition upserts → `insert(...).values([...])` with
   `ON CONFLICT`.
 - [ ] Dashboard aggregates (`GROUP BY role_name`, `GROUP BY scope`) run
-  across **all** scans, inflating counts by the number of repeat scans.
+  across all scans, inflating counts by the number of repeat scans.
   Restrict to `scopes.latest_done_scan_id`.
 - [x] `0022` dropped `ix_activity_events_caller`,
   `ix_activity_events_caller_time` and `ix_activity_events_operation_name`

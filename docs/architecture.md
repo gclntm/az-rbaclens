@@ -148,7 +148,7 @@ mgmt_group       /providers/Microsoft.Management/managementGroups/<id>
                └── resource /subscriptions/<id>/resourceGroups/<rg>/providers/<rp>/<type>/<name>
 ```
 
-Inheritance flows **downward only**: an assignment at a parent scope
+Inheritance flows downward only: an assignment at a parent scope
 applies at every descendant. Conversely a child scope can never grant
 access at a parent. The walker checks this invariant when it adds a
 node (`add_hierarchy_node` in [`backend/app/tools/scan_walk.py`](../backend/app/tools/scan_walk.py)
@@ -165,14 +165,14 @@ The walker dispatches on the check's `scope_level`:
 | `resource`       | just the resource itself                                   |
 
 For `subscription` / `resource_group` / `resource` checks, anything
-**above** the root that comes back via `list_for_scope` inheritance
+above the root that comes back via `list_for_scope` inheritance
 gets re-attributed onto the root node by the `/tree` endpoint and
 labelled `inherited from <scope>`, so ancestor nodes don't leak in.
 
 ## Casing of ARM IDs
 
 ARM IDs are technically case-insensitive but Azure returns inconsistent
-casings — the canonical `/managementGroups/` for direct assignments,
+casings: the canonical `/managementGroups/` for direct assignments,
 fully-lowercased `/managementgroups/` for many inherited rows. We
 normalize all scope strings to lowercase at every ingestion point
 (`normalize_scope` in [`tools/scope_ids.py`](../backend/app/tools/scope_ids.py)).

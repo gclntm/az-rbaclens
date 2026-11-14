@@ -6,8 +6,8 @@ FastAPI backend, React frontend, PostgreSQL, Docker for `test` / `prod`.
 Current release: see `backend/app/version.py` (0.32.0 at the time of writing).
 
 UI follows [design.md](design.md). Operator and developer
-documentation lives in [`docs/`](README.md) — this file is the
-**living index**: what exists, where it is, what changed. Update it every
+documentation lives in [`docs/`](README.md). This file is the
+living index: what exists, where it is, what changed. Update it every
 time a feature, route, table, env var or stage changes, and append a line
 to the [Changelog](#changelog). Don't duplicate `docs/` here; link to it.
 
@@ -133,7 +133,7 @@ UI labels in quotes are what the side menu and page headers say.
 Old addresses `/scopes/*` and `/principals/*` redirect to `/places/*` and
 `/people/*`. RBAC Lens never changes Azure: to-dos and reviews produce
 commands for a person to run. `apply_tags` and `create_sp` (the other bash
-scripts) are **not** wrapped; see Roadmap.
+scripts) are not wrapped; see Roadmap.
 
 ---
 
@@ -193,7 +193,7 @@ Postgres and compares the result with the models.
 
 ## Running it — the Makefile
 
-Everything goes through the `Makefile` at the repo root —
+Everything goes through the `Makefile` at the repo root:
 `make <command> <test|prod>` (`make` alone = help), on the Makefile recipe in
 [docs/README-MAKE.md](README-MAKE.md). The environment word is
 required for every stack command; nothing defaults to prod.

@@ -5,8 +5,8 @@ Status: **shipped** (phases 6–10, releases 0.3.0–0.8.0, 2026-11-08); next: [
 This plan follows [redesign-plan.md](redesign-plan.md). Phases 1–5 of that plan
 shipped the data layer: registries, findings, review decisions, schedules,
 capability levels, conditions and PIM. This plan changes what a person sees.
-The app answers one question in plain words: **who can do what, where, and
-since when**. Phases are numbered from 6 to follow the earlier plan. Tick the
+The app answers one question in plain words: who can do what, where, and
+since when. Phases are numbered from 6 to follow the earlier plan. Tick the
 boxes as they ship and add a line to `docs/CHANGELOG.md`.
 
 ---
@@ -246,7 +246,7 @@ One feed answers "what changed, who did it, when". It merges three sources:
 
 ### E. Monthly reviews
 
-A review is per **grant**, not per finding. Findings stay as evidence on
+A review is per grant, not per finding. Findings stay as evidence on
 the grant and in *Needs a look*.
 
 - [x] Migration `0028`:

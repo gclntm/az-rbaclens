@@ -10,7 +10,7 @@ created.
 
 Fix: ensure [`backend/tests/conftest.py`](../backend/tests/conftest.py)
 contains `import app.db.models  # noqa: F401` *before* the `create_all`
-call. This is already in the conftest — if you fork it and remove the
+call. This is already in the conftest. If you fork it and remove the
 import, expect this to come back.
 
 ## Settings page: "ENCRYPTION_KEY is not configured"
@@ -66,8 +66,8 @@ that as a literal database name (not a function call), and the literal
 `rbaclens_test`).
 
 Fix in repo: the endpoint now iterates `pg_tables` and runs
-`REINDEX TABLE CONCURRENTLY "<name>"` per table — same effect, no
-super-user requirement, and dodges the system-catalog edge cases
+`REINDEX TABLE CONCURRENTLY "<name>"` per table. That has the same
+effect, needs no super-user, and dodges the system-catalog edge cases
 of `REINDEX DATABASE`.
 
 ## `Graph getByIds(<type>) failed: 403`
@@ -99,8 +99,8 @@ Group Reader** for the tree above), or fix the network, then check again.
 
 ## No "What changed since #N" button on a place's Changes tab
 
-Cause: the button compares a check with the previous **completed** check
-of the **same root**. If the only earlier check failed, or was rooted
+Cause: the button compares a check with the previous completed check
+of the same root. If the only earlier check failed, or was rooted
 elsewhere, there is nothing to compare with.
 
 Fix: check the same place again; the new check sees the prior one once
@@ -120,17 +120,17 @@ What covers it automatically:
   schedules run again on the first tick (`RECOVER_JOBS_AT_START`, default
   on).
 - **The sweeper** runs every `STUCK_SCAN_SWEEP_SECONDS` (60) and marks any
-  `pending` / `running` check **or collection** whose `heartbeat_at`
+  `pending` / `running` check or collection whose `heartbeat_at`
   (else `started_at`, then `created_at`) is older than
   `STUCK_SCAN_TIMEOUT_SECONDS` (3600) as `failed`. A long check that is
   still progressing is never swept.
 - While the row is stuck, `POST /iam-access/scans` for the same scope
-  returns **409**: that is the one-in-flight guard, not a bug.
+  returns 409: that is the one-in-flight guard, not a bug.
 - "Latest check" queries only consider `done` rows, so a stuck row never
   passes for current data.
 
-If you need it gone immediately — or the sweeper is disabled
-(`STUCK_SCAN_SWEEP_SECONDS=0`) — edit the row directly or delete it.
+If you need it gone immediately, or the sweeper is disabled
+(`STUCK_SCAN_SWEEP_SECONDS=0`), edit the row directly or delete it.
 
 ```bash
 make psql test ARGS="-c \"UPDATE scans SET status='failed', error='killed' WHERE id=<N>\""
@@ -144,7 +144,7 @@ make psql test ARGS="-c 'DELETE FROM scans WHERE id=<N>'"   # cascades
 
 ## All checks are gone after `make purge <env>`
 
-`purge` deletes the database volume (`db_test_data` / `db_prod_data`) —
+`purge` deletes the database volume (`db_test_data` / `db_prod_data`);
 it asks for `yes` and says so. `make down <env>` and `make clean <env>`
 never touch volumes. Take `make backup <env>` before a purge;
 `make restore <env> BACKUP=…` brings the data back.

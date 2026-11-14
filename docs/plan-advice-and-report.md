@@ -5,8 +5,8 @@ Status: **shipped** (phases 11–14, 2026-11-08/09). This plan follows
 shipped. Phases are numbered from 11. Tick them as they ship and add a line
 to `docs/CHANGELOG.md`.
 
-RBAC Lens now shows **who can do what, where and since when**. This plan
-adds the next step: **what to do about it**.
+RBAC Lens now shows who can do what, where and since when. This plan
+adds the next step: what to do about it.
 
 1. **Advice:** advice on every grant and identity.
 2. **To-dos:** a review that ends with a to-do list, checked against Azure.
@@ -95,7 +95,7 @@ nothing or an **advice** made of:
 
 How rules combine:
 
-- **One action per grant.** The highest weight wins, then the order in the
+- **One action per grant:** the highest weight wins, then the order in the
   table. The other rules that fired are listed under it as "also".
 - **Redundancy beats PIM.** When R07 or R08 fires, R02 and R05 can't be the
   action: making a duplicated grant PIM-eligible changes nothing, so it is
@@ -161,26 +161,26 @@ carries a small marker (must: red dot, should: amber dot).
 
 The report has these sections, in this order.
 
-1. **Summary.**
+1. **Summary:**
    - One paragraph: scope, as of, how many identities and grants.
    - The 5 things that matter most: the top must-advice across the scope,
      counted ("7 people can change who has access on the whole tenant, 5
      of them standing").
    - A control table with one line per control and its status.
-2. **Privileged access** (8.2). Who can change access or get keys, where,
+2. **Privileged access** (8.2): who can change access or get keys, where,
    standing vs PIM, guests and apps among them, idle ones.
-3. **Identities** (5.16). Orphaned identities, guests with power, groups
+3. **Identities** (5.16): orphaned identities, guests with power, groups
    whose members can't be read.
-4. **Least privilege** (5.15, 5.17). Over-broad, redundant and
+4. **Least privilege** (5.15, 5.17): over-broad, redundant and
    direct-plus-group grants, replaceable custom roles, keys at broad scope.
-5. **Access reviews** (5.18).
+5. **Access reviews** (5.18):
    - Places with and without a responsible person.
    - The last rounds: finished on time, items decided.
    - To-dos open and overdue, and how long they took to close.
-6. **Changes and evidence** (8.15). Grants given and removed in the period,
+6. **Changes and evidence** (8.15): grants given and removed in the period,
    unexplained new grants, Activity Log coverage and retention, and how
    fresh the daily check is.
-7. **Recommendations.** Every advice in the scope, grouped by action and
+7. **Recommendations:** every advice in the scope, grouped by action and
    ranked, with counts and a link to each list.
 8. **Annex** (CSV download): every grant with its level, how it is given,
    since when, by whom, its advice, rule and ISO controls. Shipped as CSV
@@ -223,7 +223,7 @@ Status per control, by default. The thresholds are settings.
 - The text is cached by a hash of the facts, so the same facts give the
   same text and no repeat calls. It is marked *AI wording* and never
   replaces the rule text, which stays one click away.
-- **Never** in the report's control status or numbers. Optionally, it can
+- Never in the report's control status or numbers. Optionally, it can
   write the report's summary paragraph from the computed numbers.
 
 ## 7. Backend pieces

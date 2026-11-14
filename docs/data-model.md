@@ -74,7 +74,7 @@ role_definitions       role_definition_id PK (bare GUID, lowercased), role_name,
   walked (hundreds of nodes at most), keys and parents lowercased. Places
   Azure refused are flagged `unread` there (`unread_scopes` in the API):
   their grants are unknown, not absent.
-- **Group members.** A `scan_group_resolutions` row means Graph answered
+- **Group members:** a `scan_group_resolutions` row means Graph answered
   for the group (possibly with no members); no row means it was refused or
   never asked. Both give zero `group_memberships` rows; the resolution row
   tells them apart.
@@ -153,7 +153,7 @@ every completed check (`INSERT … ON CONFLICT DO UPDATE`):
   may reference an MG, subscription or RG check.
 - **Reading "current"**: `app/core/current_view.py`. A grant counts only if
   it comes from the check that owns its place.
-- A principal keeps the newest **non-null** name any check resolved;
+- A principal keeps the newest non-null name any check resolved;
   `last_activity_at` only moves forward (written by the coverage pass).
 - Deleting a check `SET NULL`s pointers but keeps the rows.
   `POST /settings/registry/rebuild` re-derives both registries.
@@ -189,7 +189,7 @@ operation_names      operation PK (lowercased), provider (IX), display_name,
                      resource_type_display, fetched_at
 ```
 
-- **Slim payloads (0021 → 0022).** `raw` keeps what the event drawer shows
+- **Slim payloads (0021 → 0022):** `raw` keeps what the event drawer shows
   (`authorization`, `properties`, `http_request`, `description`, …) and a
   claims subset (`oid`, `appid`, `idtyp`, `upn`, `name`, `ipaddr`); columns
   already stored and the rest of the caller's JWT are dropped

@@ -10,20 +10,20 @@ project behaves the same on a workstation and on a server.
 
 ## 1. Principles
 
-- **One entry point.** Everything an operator types goes through `make`:
+- **One entry point**: everything an operator types goes through `make`:
   no wrapper shell script next to it, no "remember the compose flags". The
   Makefile is also the documentation of what can be done (`make help`).
 - **The environment is a positional word and it is required**:
   `make up prod`, `make logs test`. A stack command typed without it refuses
   and prints the help — nothing hits production by accident, and nothing
   defaults to production. The legacy `make ENV=prod up` keeps working.
-- **`test` and `prod` only.** `test` = the workstation stack (hot reload,
+- **`test` and `prod` only**: `test` = the workstation stack (hot reload,
   debug logs, exposed ports, mail catchers); `prod` = the server. No third
-  environment unless the project really has one.
+  environment unless the project has one.
 - **Every target has a one-line `## description`**; `make help` is generated
   from them and sorted. If a target has no description it does not exist for
   the operator.
-- **Safe by default, destructive only on purpose.** Data-destroying targets
+- **Safe by default, destructive only on purpose**: data-destroying targets
   (`purge`, `reset`, `restore`) ask for an explicit confirmation and say in
   their description what they destroy. Volumes are never touched by cleanup
   targets.
@@ -32,7 +32,7 @@ project behaves the same on a workstation and on a server.
   operator fills in only what a human must know (credentials, hostnames).
 - **No secrets in git**, ever: env files are ignored, `.example` templates are
   committed, generated secrets land in the env file on the host.
-- **Thin targets.** A target is one or two commands; anything longer is a
+- **Thin targets**: a target is one or two commands; anything longer is a
   script under `tools/` or `scripts/` that the target calls (and that a human
   can run alone).
 
