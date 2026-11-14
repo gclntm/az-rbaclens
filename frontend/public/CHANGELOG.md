@@ -6,6 +6,18 @@ carries a version). `make release V=X.Y.Z` turns that heading into
 `## [X.Y.Z] - YYYY-MM-DD`, bumps the version and tags `vX.Y.Z` — see
 [README-MAKE.md](README-MAKE.md) and `scripts/release.sh`.
 
+## 2026-11-14
+
+- **The frontend image installs Alpine's security updates** when it is
+  built, as the backend does with Debian's: the nginx base image carried
+  fixable vulnerabilities (one critical, in brotli).
+- **The backend image no longer contains pip**, which is only needed to
+  build it. pip bundles an old copy of setuptools' `pkg_resources` that
+  scanners report as setuptools 70.3.0 (CVE-2025-47273). Both images now
+  scan without a fixable high or critical vulnerability.
+- **A time-dependent test is fixed:** the token-expiry test computed its
+  times when the tests were collected, so it failed on slow machines.
+
 ## [0.32.0] - 2026-11-14
 
 First public release. RBAC Lens was developed and used privately before
@@ -22,7 +34,7 @@ this (versions 0.1 to 0.31); this file starts here.
 - **Reads the Activity Log** to show which permissions are actually used,
   and keeps a feed of access changes.
 - **Advice on every grant, monthly reviews** by a responsible person per
-  place, a to-do list after each review, and an **assessment report**
+  place, a to-do list after each review, and an assessment report
   mapped to ISO/IEC 27001:2022 (print to PDF, CSV annex).
 - **Optional Entra ID sign-in** with an admin group; signed-in users see
   only their places. **Optional AI wording** of the advice (Anthropic).

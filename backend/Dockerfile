@@ -23,7 +23,10 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload
 
 FROM deps AS prod
 COPY . .
-RUN chmod +x entrypoint.sh && useradd --create-home --uid 1000 app && chown -R app:app /app
+# pip is only needed to build the image. Removing it also removes the copy of
+# setuptools' pkg_resources it bundles, which scanners report as setuptools 70.3.0.
+RUN chmod +x entrypoint.sh && useradd --create-home --uid 1000 app && chown -R app:app /app \
+    && pip uninstall -y pip
 USER app
 ENTRYPOINT ["sh", "/app/entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

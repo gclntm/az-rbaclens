@@ -151,7 +151,7 @@ RBAC Lens emails:
 Messages wait in the outbox (Settings › Notifications) until email is
 connected.
 
-1. **Permission.** In Entra ID, give the app registration RBAC Lens uses
+1. **Permission:** in Entra ID, give the app registration RBAC Lens uses
    the Microsoft Graph *application* permission **Mail.Send**, and grant
    admin consent.
 2. **Limit it to one mailbox** (strongly recommended). Without a limit,
@@ -195,13 +195,13 @@ root CA, the backend will fail to verify the cert and every Graph /
 Azure SDK call will error out (look for `SSL: CERTIFICATE_VERIFY_FAILED`
 in the logs).
 
-The backend respects `REQUESTS_CA_BUNDLE` — point it at the proxy's
+The backend respects `REQUESTS_CA_BUNDLE`. Point it at the proxy's
 PEM-encoded root CA, and both the Azure SDK (`SubscriptionClient`,
 `AuthorizationManagementClient`, `ManagementGroupsAPI`,
 `ResourceManagementClient`) and the Graph resolver will verify
 against that file. `SSL_CERT_FILE` is honored as a fallback.
 
-The path must be valid **inside the backend container**, so you also
+The path must be valid inside the backend container, so you also
 need to bind-mount the host file:
 
 ```yaml
@@ -215,7 +215,7 @@ backend:
 
 `REQUESTS_CA_BUNDLE` can also go in `.env.prod` (the base compose file
 passes it on); the mount still goes in the overlay. Run `make restart prod`
-after changing either side — Docker only applies
+after changing either side: Docker only applies
 env changes when a container is recreated (`make env-check prod` shows
 what's pending).
 
@@ -343,7 +343,7 @@ The prod compose binds the frontend container's nginx on port 80 only
 (on `BIND_ADDRESS`, see above).
 Front it with whatever your platform uses for TLS (Caddy, Traefik,
 nginx, an Azure App Gateway, …). The backend doesn't need to be
-reachable from outside the host — the frontend nginx proxies `/api/*`
+reachable from outside the host: the frontend nginx proxies `/api/*`
 to it over the compose network. CORS is still enforced even with a
 reverse proxy in front.
 
@@ -398,8 +398,9 @@ make build prod   # pull fresh base and service images, rebuild without cache
 make up prod
 ```
 
-The backend image also applies Debian's security updates and upgrades pip
-and setuptools at build time. Run `make scan` monthly, and rebuild when it
+The images also apply their distribution's security updates at build time
+(Debian for the backend, Alpine for the frontend), and the backend image
+drops pip once its packages are installed. Run `make scan` monthly, and rebuild when it
 reports something. `make backup prod` first, as for any redeploy.
 
 Trivy itself is pinned by version and digest (`TRIVY_IMAGE` in the
@@ -448,10 +449,10 @@ management/values`), the Tenant Root Group included.
 It cannot change anything in Azure. Don't reuse an identity that can
 write (a deployment pipeline's, for example).
 
-- **Email (optional).** Add `Mail.Send` only with
+- **Email (optional):** add `Mail.Send` only with
   `NOTIFICATION_CHANNEL=email`, limited to the sender mailbox (see
   [Real email through Microsoft Graph](#real-email-through-microsoft-graph)).
-- **Secret.** Note when it expires: a check that fails on
+- **Secret:** note when it expires; a check that fails on
   authentication is the sign. Renew it with `az ad app credential reset`,
   put the new value in `ARM_CLIENT_SECRET` in `.env.prod`, then
   `make restart prod`.
@@ -479,7 +480,7 @@ texts a day (default 200; 0 = no limit). There are no metrics yet.
 
 ## Authentication / authorization
 
-Sign-in with **Microsoft Entra ID** is optional and off by default; see
+Sign-in with Microsoft Entra ID is optional and off by default; see
 [auth.md](auth.md). A wrong setting that locks everyone out is undone with
 `make auth-off prod` on the host. Exposed beyond a private network, also
 put the app behind your organisation's SSO or proxy auth (Easy Auth,
