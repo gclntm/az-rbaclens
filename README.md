@@ -49,6 +49,47 @@ Backend is at `http://localhost:8000` (OpenAPI / Swagger at
 the app sends is caught by Mailpit: `http://localhost:8026` (prod:
 `http://localhost:8025`, this machine only).
 
+## First steps: from a fresh install to analysis
+
+RBAC Lens works from its own copy of Azure. Two kinds of collection fill
+it, and schedules keep it current:
+
+| Term | What it reads | How often |
+|------|---------------|-----------|
+| **Check** | Who has which role: every role assignment, PIM eligibility and group membership under one place (management group, subscription, resource group or resource). | Daily for the tenant root, or on demand |
+| **Activity Log collection** | Who changed what: Azure's control-plane log (writes, deletes, access changes, `listKeys`) per subscription, plus the management groups' log. | Every hour; the first run fetches the last 90 days, all that Azure keeps |
+| **Schedule** | Runs a check or a collection by itself. | Pause, edit or *Run now* on **Data & schedules** |
+
+1. **Give it an identity.** A service principal with Reader on the places
+   to check, Management Group Reader on the Tenant Root Group and the Entra
+   role Directory Readers. Save it on **Settings → Credentials**, or put
+   `ARM_*` in the env file.
+2. **Run the first check.** On **Data & schedules**, choose **Add a
+   schedule, or run once**, pick the tenant root (or a management group or
+   subscription) and run it once. The page shows its progress.
+3. **Let the schedules start.** After the first check, RBAC Lens adds a
+   daily check of the tenant root at 06:00 (`TZ`, `DEFAULT_CHECK_HOUR`) and
+   an hourly Activity Log collection per subscription and for the
+   management groups. Nothing else is needed day to day.
+4. **Start the analysis.** As soon as the check is done:
+   - **Home**: what needs a look and the latest changes;
+   - **Places**: for each place, *Who can do what* at five levels, from
+     "can change who has access" to "can only look";
+   - **Needs a look**: findings such as a powerful role given high up, an
+     identity that no longer exists, group members unknown, new since the
+     previous check;
+   - **People & apps**: everything one identity can do, and where.
+
+   Usage findings (no change in the window, allows far more than was used)
+   and activity with no visible grant fill in once a subscription's
+   Activity Log is collected.
+5. **Set up the monthly review.** Name a responsible person per place on
+   **Settings → Who is responsible**. Each month they review its grants
+   (keep, remove or change), which produces a to-do list; **Report** prints
+   an ISO/IEC 27001 assessment.
+
+Details for every page: [`docs/iam-access.md`](docs/iam-access.md).
+
 ## Documentation
 
 Everything that's worth more than a paragraph lives in [`docs/`](docs/).
