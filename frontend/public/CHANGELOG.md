@@ -6,6 +6,14 @@ carries a version). `make release V=X.Y.Z` turns that heading into
 `## [X.Y.Z] - YYYY-MM-DD`, bumps the version and tags `vX.Y.Z` — see
 [README-MAKE.md](README-MAKE.md) and `scripts/release.sh`.
 
+## 2026-11-16
+
+- **The README has a "First steps" section**, from a fresh install to the
+  first analysis: what a check, an Activity Log collection and a schedule
+  are, the identity to give it, the first check, the schedules it adds by
+  itself, which pages to start the analysis from, and how to set up the
+  monthly review.
+
 ## [0.32.1] - 2026-11-14
 
 - **The frontend image installs Alpine's security updates** when it is
