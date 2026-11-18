@@ -415,9 +415,9 @@ def test_the_advice_on_an_owned_app_gives_the_commands_to_remove_owners():
     assert (a.rule, a.action, a.decision) == ("R17 owners", "fix_owners", None)
     assert a.commands == [
         "# ada@example.org",
-        "az ad app owner remove --id app-1 --owner-object-ids ada-id",
+        "az ad app owner remove --id app-1 --owner-object-id ada-id",
         "az rest --method DELETE --url 'https://graph.microsoft.com/v1.0/servicePrincipals/sp-deploy/owners/ada-id/$ref'",
         "# sp-ci",
-        "az ad app owner remove --id app-1 --owner-object-ids sp-ci",
+        "az ad app owner remove --id app-1 --owner-object-id sp-ci",
     ]
     assert advice.RULES["R18 guest-owner"].weight == "must"

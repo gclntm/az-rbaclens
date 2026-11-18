@@ -250,7 +250,7 @@ def owner_remove_commands(object_id: str, app_id: str | None, owners: list[dict]
                     f"az ad group owner remove --group {_q(object_id)} --owner-object-id {_q(oid)}"
                 )
             elif via == "registration" and app_id:
-                out.append(f"az ad app owner remove --id {_q(app_id)} --owner-object-ids {_q(oid)}")
+                out.append(f"az ad app owner remove --id {_q(app_id)} --owner-object-id {_q(oid)}")
             elif via == "service_principal":
                 url = f"{GRAPH}/servicePrincipals/{object_id}/owners/{oid}/$ref"
                 out.append(f"az rest --method DELETE --url {_q(url)}")
