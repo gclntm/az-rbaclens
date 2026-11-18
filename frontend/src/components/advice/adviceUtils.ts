@@ -14,6 +14,7 @@ export const ACTION_LABEL: Record<AdviceAction, string> = {
   narrow: "Give it lower down",
   ask: "Ask",
   fix_members: "Find out who is in the group",
+  fix_owners: "Check who owns it",
   set_responsible: "Set someone responsible",
   keep: "Keep",
 };

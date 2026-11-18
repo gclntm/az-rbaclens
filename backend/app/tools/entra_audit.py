@@ -6,7 +6,8 @@ could only say when a check first saw it. Entra records it in its audit
 log, read here through Microsoft Graph (``/auditLogs/directoryAudits``).
 Only the entries in :data:`ACTIVITIES` are kept, in ``directory_audit_events``:
 group members added or removed, Entra roles given or removed (directly or
-through PIM), eligibility added or removed, and PIM activations.
+through PIM), eligibility added or removed, PIM activations, and owners
+added to or removed from a group or an app.
 ``core/changes.py`` matches them to the differences a check saw.
 
 Optional. The identity needs the Graph application permission
@@ -66,8 +67,25 @@ ACTIVITIES: dict[str, tuple[str, str]] = {
     "Remove permanent eligible role assignment": ("eligible", "remove"),
     "Add member to role completed (PIM activation)": ("activation", "add"),
     "Remove member from role (PIM activation expired)": ("activation", "remove"),
+    # Owners of a group or an app (plan "owners"): an app's owner can act as it, a
+    # group's owner decides its members.
+    "Add owner to group": ("owner", "add"),
+    "Remove owner from group": ("owner", "remove"),
+    "Add owner to application": ("owner", "add"),
+    "Remove owner from application": ("owner", "remove"),
+    "Add owner to service principal": ("owner", "add"),
+    "Remove owner from service principal": ("owner", "remove"),
 }
-CATEGORIES = ("GroupManagement", "RoleManagement")
+CATEGORIES = ("GroupManagement", "RoleManagement", "ApplicationManagement")
+# An owner entry's object, by the properties on the owner's target. An app's
+# registration is named by its client id: ``core/owner_changes.py`` maps it to
+# the app's service principal.
+APP_PREFIX = "appid:"
+_OWNED = (
+    ("Group.ObjectID", "Group.DisplayName", ""),
+    ("ServicePrincipal.ObjectID", "ServicePrincipal.DisplayName", ""),
+    ("Application.AppId", "Application.DisplayName", APP_PREFIX),
+)
 _MEMBER_TYPES = {"User", "Group", "ServicePrincipal"}
 MAX_PAGES = 2000
 BATCH_SIZE = 200
@@ -300,6 +318,35 @@ def _parse_role(
     )
 
 
+def _parse_owner(item: dict[str, Any], action: str, targets: list) -> DirectoryAuditEvent | None:
+    """The owner is the target whose properties name the object it owns (or owned)."""
+    for owner in targets:
+        props = {
+            p.get("displayName"): _clean(p.get("newValue")) or _clean(p.get("oldValue"))
+            for p in owner.get("modifiedProperties") or []
+        }
+        for id_key, name_key, prefix in _OWNED:
+            if props.get(id_key) and _type(owner) in _MEMBER_TYPES:
+                ikind, iid, iname = _initiator(item)
+                return DirectoryAuditEvent(
+                    audit_id=str(item["id"])[:100],
+                    kind="owner",
+                    action=action,
+                    occurred_at=_when(item),
+                    result=(item.get("result") or None),
+                    group_id=f"{prefix}{props[id_key]}".lower()[:64],
+                    group_name=props.get(name_key),
+                    member_id=owner["id"].lower(),
+                    member_type=_type(owner),
+                    member_name=_name(owner),
+                    initiator_type=ikind,
+                    initiator_id=iid.lower() if iid else None,
+                    initiator_name=iname,
+                    raw=item,
+                )
+    return None
+
+
 def parse(item: dict[str, Any]) -> DirectoryAuditEvent | None:
     """One audit entry as a row, or ``None`` when it doesn't name what changed for whom."""
     kind, action = ACTIVITIES.get(item.get("activityDisplayName") or "", (None, None))
@@ -308,6 +355,8 @@ def parse(item: dict[str, Any]) -> DirectoryAuditEvent | None:
     targets = [t for t in item.get("targetResources") or [] if t.get("id")]
     if not (kind and action and audit_id and when and targets):
         return None
+    if kind == "owner":
+        return _parse_owner(item, action, targets)
     if kind != "group":
         return _parse_role(item, kind, action, targets)
     gid, gname = _group_from_properties(targets)

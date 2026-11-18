@@ -64,6 +64,10 @@ CATEGORY_PRIORITY = {
             "entra_app_privileged",
             "entra_too_many_global_admins",
             "entra_role_via_group",
+            "guest_owner",
+            "app_owned_by_app",
+            "app_owners",
+            "group_owners",
         )
     )
 }
@@ -89,6 +93,11 @@ CATEGORIES = (
     "entra_app_privileged",
     "entra_too_many_global_admins",
     "entra_role_via_group",
+    # Owners of apps and groups (core/owner_findings.py)
+    "guest_owner",
+    "app_owned_by_app",
+    "app_owners",
+    "group_owners",
 )
 
 FOREIGN_GROUP_DETAIL = (
@@ -432,8 +441,11 @@ def compute_scan_findings(session: Session, scan_id: int, window_days: int = 90)
     )
     from app.core.advice import load_settings
     from app.core.entra_findings import entra_findings
+    from app.core.owner_findings import owner_findings
 
-    drafts.extend(entra_findings(session, scan, set(load_settings(session).break_glass)))
+    break_glass = set(load_settings(session).break_glass)
+    drafts.extend(entra_findings(session, scan, break_glass))
+    drafts.extend(owner_findings(session, scan, break_glass))
     now = datetime.now(UTC)
 
     session.execute(delete(Finding).where(Finding.scan_id == scan_id))

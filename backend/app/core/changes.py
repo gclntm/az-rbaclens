@@ -7,7 +7,9 @@ Three kinds of difference become ``access_changes`` rows:
 - grants given or removed (role assignments);
 - PIM eligibilities added or removed (only when both checks read PIM);
 - people joining or leaving a group that holds access (only for groups
-  both checks could read).
+  both checks could read);
+- owners added to or removed from an app or group that holds access
+  (``core/owner_changes.py``).
 
 Time and author come from the best source available, in this order: the
 matching Activity Log event (by Azure's assignment id), Azure's own
@@ -41,6 +43,12 @@ from app.core.activity_targets import MGMT_GROUP_PREFIX, is_mgmt_groups
 from app.core.capabilities import LEVEL_RANK, UNKNOWN, classify
 from app.core.entra_roles import ENTRA_PLACE
 from app.core.findings import grant_fingerprint, previous_done_scan
+from app.core.owner_changes import (
+    OWNER_KINDS,
+    apply_owner_audits,
+    owner_changes,
+    record_owner_audit_changes,
+)
 from app.core.timeutil import as_utc
 from app.db.models import (
     AccessChange,
@@ -57,8 +65,8 @@ from app.db.models import (
 
 logger = logging.getLogger(__name__)
 
-GIVEN_KINDS = ("granted", "eligible_added", "member_added")
-REMOVED_KINDS = ("removed", "eligible_removed", "member_removed")
+GIVEN_KINDS = ("granted", "eligible_added", "member_added", "owner_added")
+REMOVED_KINDS = ("removed", "eligible_removed", "member_removed", "owner_removed")
 WRITE_OP = "microsoft.authorization/roleassignments/write"
 DELETE_OP = "microsoft.authorization/roleassignments/delete"
 # How far before the previous check an event may lie and still explain a
@@ -374,6 +382,11 @@ def changes_between(session: Session, prev: Scan, scan: Scan) -> list[AccessChan
         )
 
     out.extend(_membership_changes(session, prev, scan, old, new, levels, seen_at))
+    owned = owner_changes(
+        session, prev, scan, old, new, lambda rid: _level_of(levels, rid), seen_at
+    )
+    apply_owner_audits(session, owned, prev_at - EVENT_SLACK, seen_at)
+    out.extend(owned)
     _apply_role_audits(session, out, prev_at - EVENT_SLACK, seen_at)
 
     names = _names(session, {c.actor_id for c in out if c.actor_id and not c.actor_name})
@@ -598,7 +611,7 @@ def _nested_in_checks(
 
 
 def refine_from_directory_audits(session: Session, days: int = 14) -> int:
-    """Give "first seen" membership and Entra role changes their author once
+    """Give "first seen" membership, owner and Entra role changes their author once
     the Entra ID audit log entries arrive (the collection may run after the
     check). Commits."""
     since = datetime.now(UTC) - timedelta(days=days)
@@ -607,7 +620,7 @@ def refine_from_directory_audits(session: Session, days: int = 14) -> int:
         .where(
             or_(
                 (AccessChange.source == "daily_check")
-                & AccessChange.kind.in_(tuple(_AUDIT_ACTION)),
+                & AccessChange.kind.in_((*_AUDIT_ACTION, *OWNER_KINDS)),
                 (AccessChange.scope == ENTRA_PLACE)
                 & AccessChange.source.in_(("daily_check", "created_on"))
                 & AccessChange.kind.in_(tuple(_ROLE_AUDIT)),
@@ -635,6 +648,7 @@ def refine_from_directory_audits(session: Session, days: int = 14) -> int:
         )
         updated += _apply_directory_audits(session, changes, nested, prev_at - EVENT_SLACK, until)
         updated += _apply_role_audits(session, changes, prev_at - EVENT_SLACK, until)
+        updated += apply_owner_audits(session, changes, prev_at - EVENT_SLACK, until)
     session.commit()
     return updated
 
@@ -679,7 +693,7 @@ def rebuild_changes(session: Session) -> int:
         select(Scan.id).where(Scan.status == "done").order_by(Scan.finished_at, Scan.id)
     ).all():
         total += record_changes_for_scan(session, scan_id)
-    return total + record_entra_audit_changes(session)
+    return total + record_entra_audit_changes(session) + record_owner_audit_changes(session)
 
 
 # ---- Entra role changes straight from the audit log ---------------------------------------

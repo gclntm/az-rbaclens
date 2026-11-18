@@ -108,6 +108,11 @@ def run_scan(scan_id: int) -> None:
                 for eligibility in entra.eligibilities:
                     eligibility.scan_id = scan.id
                     session.add(eligibility)
+            owners = _collect_owners(
+                credential,
+                assignments,
+                [*pim.eligibilities, *(entra.eligibilities if entra is not None else [])],
+            )
             for ra in assignments:
                 ra.scan_id = scan.id
                 session.add(ra)
@@ -119,6 +124,7 @@ def run_scan(scan_id: int) -> None:
             scan.hierarchy = hierarchy
             upsert_role_definitions(session, role_definitions)
             persist_group_memberships(session, scan.id, group_memberships)
+            _persist_owners(session, scan.id, owners)
             # ``None``: Graph refused the group's members (they stay unknown).
             total_members = sum(len(members or ()) for members in group_memberships.values())
             scan.progress_message = f"Done — {len(assignments)} role assignments"
@@ -165,6 +171,67 @@ def _collect_pim_safely(
     except Exception as exc:
         logger.exception("PIM collection failed for scan %s", scan.id)
         return pim_tool.PimResult(status="failed", error=f"{type(exc).__name__}: {exc}")
+
+
+def _collect_owners(credential: TokenCredential, assignments: list, eligibilities: list):
+    """Who owns the apps and groups holding a grant or an eligibility here
+    (tools/graph_owners.py). ``None`` when no Graph token can be had (the rest of
+    the check doesn't need one); Graph not answering fails the check."""
+    from app.tools import entra_directory as ed
+    from app.tools import graph_owners
+    from app.tools.graph_groups import GRAPH_SCOPE
+
+    holders = [*assignments, *eligibilities]
+    apps = {
+        r.principal_id.lower(): (
+            getattr(r, "principal_sp_type", None),
+            getattr(r, "principal_app_owner", None),
+        )
+        for r in holders
+        if r.principal_type == "ServicePrincipal"
+    }
+    groups = {r.principal_id.lower() for r in holders if r.principal_type == "Group"}
+    if not apps and not groups:
+        return None
+    try:
+        tenant_id = ed.tenant_of(credential.get_token(GRAPH_SCOPE).token)
+    except Exception:
+        logger.warning("no Graph token: owners not read", exc_info=True)
+        return None
+    return graph_owners.collect(credential, apps, groups, tenant_id)
+
+
+def _persist_owners(session: Any, scan_id: int, owners: Any) -> None:
+    if owners is None:
+        return
+    from app.db.models import PrincipalOwner, ScanOwnerResolution
+
+    for object_id in sorted(owners.read):
+        session.add(
+            ScanOwnerResolution(
+                scan_id=scan_id,
+                object_id=object_id,
+                registered_elsewhere=object_id in owners.elsewhere,
+                app_id=owners.app_ids.get(object_id),
+            )
+        )
+    seen: set[tuple[str, str, str]] = set()
+    for o in owners.owners:
+        key = (o.object_id, o.via, o.owner_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        session.add(
+            PrincipalOwner(
+                scan_id=scan_id,
+                object_id=o.object_id,
+                object_kind=o.object_kind,
+                via=o.via,
+                owner_id=o.owner_id,
+                owner_type=o.owner_type,
+                owner_name=o.owner_name,
+            )
+        )
 
 
 def _collect_entra(

@@ -195,8 +195,10 @@ class DirectoryAuditEvent(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     # Entra's own id of the audit entry: reading a window twice stores it once.
     audit_id: Mapped[str] = mapped_column(String(100), nullable=False)
-    # group | role | eligible | activation (0041): a group's members, an Entra
-    # role, an Entra role through PIM eligibility, or a PIM activation.
+    # group | role | eligible | activation (0041) | owner (0043): a group's members,
+    # an Entra role, an Entra role through PIM eligibility, a PIM activation, or
+    # the owners of a group or an app (``group_id`` is then the object owned:
+    # the group, the service principal, or ``appid:<client id>`` for a registration).
     kind: Mapped[str] = mapped_column(String(12), nullable=False, server_default="group")
     # add | remove
     action: Mapped[str] = mapped_column(String(10), nullable=False)

@@ -25,7 +25,7 @@ from app.core.reviews import period_of
 from app.core.security import require_auth, who_is
 from app.db.models import GroupMembership, Principal, ReviewItem, ReviewRound, Scan, ScanCoverage
 from app.db.session import get_session
-from app.schemas.grants import GrantDetail, GrantOperation, GrantPower
+from app.schemas.grants import GrantDetail, GrantOperation, GrantOwner, GrantPower
 from app.schemas.registry import ScopeCrumb
 from app.schemas.reviews import ReviewRef
 
@@ -153,6 +153,32 @@ def grant_detail(
         findings=[current_finding(ra, r) for r in refs],
         review=_review_ref(session, grant_id.lower(), claims),
         advice=advise_grant(context(session, view), ra),
+        **_owners(session, ra),
         **_condition(view, ra),
         **_origin(ra),
     )
+
+
+def _owners(session: Session, ra) -> dict:
+    """``owners`` / ``owners_elsewhere`` for an app's or group's grant."""
+    if ra.principal_type not in ("ServicePrincipal", "Group"):
+        return {}
+    from app.core.owners import current_owners
+
+    info = current_owners(session, {ra.principal_id})[ra.principal_id.lower()]
+    if not info.known:
+        return {"owners_elsewhere": info.registered_elsewhere}
+    vias: dict[str, list[str]] = {}
+    names: dict[str, tuple[str | None, str | None]] = {}
+    for o in info.owners:
+        vias.setdefault(o.owner_id, []).append(o.via)
+        names[o.owner_id] = (o.owner_name, o.owner_type)
+    return {
+        "owners": [
+            GrantOwner(
+                owner_id=k, owner_name=names[k][0], owner_type=names[k][1], via=sorted(set(v))
+            )
+            for k, v in vias.items()
+        ],
+        "owners_elsewhere": info.registered_elsewhere,
+    }

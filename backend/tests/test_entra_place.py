@@ -543,6 +543,10 @@ def _run_root_check(app_with_sqlite: TestClient, monkeypatch, scope: str, entra)
         return entra
 
     monkeypatch.setattr(ed, "collect", collect)
+    from app.tools import graph_owners
+
+    # Owners are read by their own tests (test_owners.py): no Graph call here.
+    monkeypatch.setattr(graph_owners, "collect", lambda *a, **k: graph_owners.Owners())
     resolved: list[list[str]] = []
     monkeypatch.setattr(
         tool,

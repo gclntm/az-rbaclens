@@ -121,6 +121,20 @@ SENTENCES: dict[str, tuple[str, str]] = {
         "1 grant goes to a group whose members can't be read; find out who is in it.",
         "{n} grants go to groups whose members can't be read; find out who is in them.",
     ),
+    "R17 owners": (
+        (
+            "1 powerful grant is held by an app or group whose owners can use it; "
+            "keep as owners only those who must."
+        ),
+        (
+            "{n} powerful grants are held by apps or groups whose owners can use them; "
+            "keep as owners only those who must."
+        ),
+    ),
+    "R18 guest-owner": (
+        "1 powerful grant is held by an app or group a guest owns; ask who invited them.",
+        "{n} powerful grants are held by apps or groups guests own; ask who invited them.",
+    ),
     "R12 new-unexplained": (
         "1 recent grant has no known reason or giver; confirm it.",
         "{n} recent grants have no known reason or giver; confirm them.",

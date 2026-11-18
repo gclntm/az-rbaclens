@@ -11,11 +11,13 @@ from app.db.models.activity import (
 )
 from app.db.models.checks import (
     GroupMembership,
+    PrincipalOwner,
     RoleAssignment,
     RoleDefinition,
     RoleEligibility,
     Scan,
     ScanGroupResolution,
+    ScanOwnerResolution,
     ScanStatus,
     ScopeLevel,
 )
@@ -65,6 +67,7 @@ __all__ = [
     "Notification",
     "OperationName",
     "Principal",
+    "PrincipalOwner",
     "Responsibility",
     "ResponsibleSuggestion",
     "ReviewDecision",
@@ -76,6 +79,7 @@ __all__ = [
     "Scan",
     "ScanCoverage",
     "ScanGroupResolution",
+    "ScanOwnerResolution",
     "ScanStatus",
     "Scope",
     "ScopeLevel",

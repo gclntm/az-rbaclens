@@ -6,7 +6,14 @@ from typing import Literal
 from pydantic import BaseModel
 
 ChangeKind = Literal[
-    "granted", "removed", "eligible_added", "eligible_removed", "member_added", "member_removed"
+    "granted",
+    "removed",
+    "eligible_added",
+    "eligible_removed",
+    "member_added",
+    "member_removed",
+    "owner_added",
+    "owner_removed",
 ]
 ChangeSource = Literal["activity_log", "created_on", "daily_check", "entra_audit"]
 

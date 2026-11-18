@@ -92,3 +92,18 @@ export function usageTitle(row: PrincipalAccessRow): string | undefined {
   const who = row.source === "group" ? "the group's members" : "this identity";
   return `${row.observed_op_count} kind${row.observed_op_count === 1 ? "" : "s"} of change by ${who} in the last 90 days, anywhere`;
 }
+
+/** How an owner owns an app or group. */
+export function viaLabel(via: string): string {
+  if (via === "registration") return "owns its app registration";
+  if (via === "service_principal") return "owns its service principal";
+  if (via === "group") return "owns the group";
+  return via;
+}
+
+/** What owning this identity allows, for the Owners section. */
+export function ownersIntro(principalType: string | null | undefined): string {
+  if (principalType === "ServicePrincipal")
+    return "Whoever owns this app (its registration or its service principal) can add a secret to it and act as it, with everything it holds.";
+  return "Whoever owns this group decides its members, themselves included, and so who gets the group's access.";
+}

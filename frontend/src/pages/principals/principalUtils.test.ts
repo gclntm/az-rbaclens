@@ -5,11 +5,13 @@ import type { PrincipalAccessRow } from "@/api/client";
 import {
   filterAccess,
   groupBySubscription,
+  ownersIntro,
   parsePrincipalTab,
   principalHref,
   typeLabel,
   usageLabel,
   usageTitle,
+  viaLabel,
 } from "./principalUtils";
 
 function row(over: Partial<PrincipalAccessRow>): PrincipalAccessRow {
@@ -95,5 +97,17 @@ describe("usageLabel", () => {
       "1 kind of change by the group's members in the last 90 days, anywhere",
     );
     expect(usageTitle(row({ observed_op_count: 0 }))).toBeUndefined();
+  });
+});
+
+describe("owners", () => {
+  it("names each way of owning", () => {
+    expect(viaLabel("registration")).toBe("owns its app registration");
+    expect(viaLabel("service_principal")).toBe("owns its service principal");
+    expect(viaLabel("group")).toBe("owns the group");
+  });
+  it("explains owners by kind", () => {
+    expect(ownersIntro("ServicePrincipal")).toMatch(/act as it/);
+    expect(ownersIntro("Group")).toMatch(/decides its members/);
   });
 });

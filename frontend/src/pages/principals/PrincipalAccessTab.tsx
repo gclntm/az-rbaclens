@@ -32,9 +32,12 @@ import AccessMapView, { AM_CHIP, LEVEL_CHIP } from "./AccessMapView";
 import {
   filterAccess,
   groupBySubscription,
+  ownersIntro,
   principalHref,
+  typeLabel,
   usageLabel,
   usageTitle,
+  viaLabel,
   type AccessFilter,
 } from "./principalUtils";
 
@@ -291,6 +294,59 @@ export default function PrincipalAccessTab({ data }: { data: PrincipalPage }) {
               <li key={`${a.at}-${a.role_id}`} className="border-t border-t-secondary py-1.5">
                 {new Date(a.at).toLocaleString(undefined, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}{" "}
                 · {a.role_name ?? a.role_id}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {(data.owners || data.owners_elsewhere) && (
+        <>
+          <h3 className={cx(SECTION_TITLE, "mt-6")}>Owners ({data.owners?.length ?? 0})</h3>
+          <p className={cx("my-[1em]", CAPTION, "text-quaternary")}>
+            {ownersIntro(data.principal.principal_type)}
+          </p>
+          {data.owners_elsewhere && (
+            <p className={cx("my-[1em]", CAPTION)}>
+              Registered in its publisher's tenant: the owners of its registration are there, not here.
+            </p>
+          )}
+          {(data.owners?.length ?? 0) === 0 ? (
+            !data.owners_elsewhere && <p className={cx(CAPTION, "text-quaternary")}>None.</p>
+          ) : (
+            <ul className="m-0 list-none p-0">
+              {data.owners!.map((o) => (
+                <li key={o.owner_id} className="border-t border-t-secondary py-1.5">
+                  <Link to={principalHref(o.owner_id)}>{o.owner_name ?? o.owner_id}</Link>
+                  <span className="text-quaternary">
+                    {" "}
+                    · {typeLabel(o.owner_type)} · {o.via.map(viaLabel).join(", ")}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+
+      {(data.owns?.length ?? 0) > 0 && (
+        <>
+          <h3 className={cx(SECTION_TITLE, "mt-6")}>Owns ({data.owns!.length})</h3>
+          <p className={cx("my-[1em]", CAPTION, "text-quaternary")}>
+            Apps and groups holding access that this identity owns. Owning an app lets it add a secret and act as the
+            app; owning a group lets it choose the group's members.
+          </p>
+          <ul className="m-0 list-none p-0">
+            {data.owns!.map((o) => (
+              <li key={o.object_id} className="border-t border-t-secondary py-1.5">
+                {o.object_kind === "app" ? "App" : "Group"}{" "}
+                <Link to={principalHref(o.object_id)}>{o.object_name ?? o.object_id}</Link>
+                <span className="text-quaternary">
+                  {" "}
+                  · {LEVEL_INFO[o.level].title.toLowerCase()} on{" "}
+                </span>
+                <Link to={scopeHref(o.scope)}>{scopeLabel(o.scope, o.scope_name)}</Link>
+                {o.grants > 1 && <span className="text-quaternary"> · {o.grants} grants</span>}
               </li>
             ))}
           </ul>

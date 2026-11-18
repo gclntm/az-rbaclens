@@ -55,6 +55,11 @@ class CapabilityIdentity(BaseModel):
     member_count: int | None = None
     # Newest Activity Log event attributed to it (people and apps).
     last_activity_at: datetime | None = None
+    # Apps and groups: how many people or apps own it (an app's owner can act as
+    # it, a group's owner decides its members); null when no check could read them.
+    owner_count: int | None = None
+    # Apps registered in another tenant: their owners are there.
+    owners_elsewhere: bool = False
 
 
 class CapabilityLevelGroup(BaseModel):

@@ -46,6 +46,10 @@ export const CATEGORY_LABEL: Record<string, string> = {
   entra_app_privileged: "An app holds a powerful Entra role",
   entra_too_many_global_admins: "Too many Global Administrators",
   entra_role_via_group: "Powerful Entra role through a group",
+  guest_owner: "A guest owns an app or group with power",
+  app_owned_by_app: "Another app owns this app",
+  app_owners: "People own this app and can act as it",
+  group_owners: "People own this group and pick its members",
 };
 
 /** One sentence per category for the "Needs a look" list on Home. */
@@ -64,6 +68,10 @@ export const CATEGORY_SENTENCE: Record<string, string> = {
   entra_app_privileged: "An app holds an Entra role that can change who has access or get in as someone else.",
   entra_too_many_global_admins: "More Global Administrators than the fewer than five Microsoft advises.",
   entra_role_via_group: "A powerful Entra role comes through a group: whoever manages its members decides who holds it.",
+  guest_owner: "A guest from another organisation owns an app or group that can change who has access or get keys.",
+  app_owned_by_app: "Another app owns this app: whoever controls that app can add a secret here and act as it.",
+  app_owners: "People own this app: each can add a secret to it and use its powerful access.",
+  group_owners: "People own this group: each can add anyone to it, themselves included, and so give its access.",
 };
 
 export const SEVERITY_ORDER: Record<FindingSeverity, number> = { high: 0, medium: 1, low: 2 };

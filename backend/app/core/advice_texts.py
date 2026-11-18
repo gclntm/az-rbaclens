@@ -70,6 +70,14 @@ RULES: dict[str, Rule] = {
             ("5.16", "8.2"),
         ),
         Rule(
+            "R18 guest-owner",
+            "must",
+            "fix_owners",
+            None,
+            "Ask about the guest who owns it",
+            ("5.16", "8.2"),
+        ),
+        Rule(
             "R05 keys-broad",
             "should",
             "pim",
@@ -124,6 +132,14 @@ RULES: dict[str, Rule] = {
             "ask",
             "Find out who is in the group",
             ("5.18",),
+        ),
+        Rule(
+            "R17 owners",
+            "should",
+            "fix_owners",
+            None,
+            "Check who owns it: owners can use its access",
+            ("5.18", "8.2"),
         ),
         Rule(
             "R12 new-unexplained",
@@ -214,6 +230,31 @@ def entra_delete_command(assignment_id: str | None, principal_id: str, role: str
         return f"az rest --method DELETE --url {_q(f'{ENTRA_ASSIGNMENTS}/{assignment_id}')}"
     who = comment_text(principal_id)
     return f"# Entra admin center › Roles and administrators › {comment_text(role)} › Assignments: remove {who}"
+
+
+GRAPH = "https://graph.microsoft.com/v1.0"
+
+
+def owner_remove_commands(object_id: str, app_id: str | None, owners: list[dict]) -> list[str]:
+    """One command per way each owner owns the app or group (Azure CLI has no
+    ``az ad sp owner remove``: a service principal's owner goes through Graph)."""
+    out: list[str] = []
+    for o in owners:
+        oid = str(o.get("id") or "")
+        if not oid:
+            continue
+        out.append(f"# {comment_text(o.get('name') or oid)}")
+        for via in o.get("via") or []:
+            if via == "group":
+                out.append(
+                    f"az ad group owner remove --group {_q(object_id)} --owner-object-id {_q(oid)}"
+                )
+            elif via == "registration" and app_id:
+                out.append(f"az ad app owner remove --id {_q(app_id)} --owner-object-ids {_q(oid)}")
+            elif via == "service_principal":
+                url = f"{GRAPH}/servicePrincipals/{object_id}/owners/{oid}/$ref"
+                out.append(f"az rest --method DELETE --url {_q(url)}")
+    return out
 
 
 _CLI_TYPE = {"User": "User", "Group": "Group", "ForeignGroup": "ForeignGroup"}

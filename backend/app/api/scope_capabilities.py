@@ -115,6 +115,12 @@ def scope_capabilities(
     first_row = {pid: (effective.get(pid) or eligible[pid])[0] for pid in pids}
     group_ids = [pid for pid in pids if _KIND.get(first_row[pid].principal_type) == "group"]
     member_counts, people_via_groups = _group_members(session, view, group_ids)
+    from app.core.owners import current_owners
+
+    owned = current_owners(
+        session,
+        {p for p in pids if _KIND.get(first_row[p].principal_type) in ("app", "group")},
+    )
 
     def grant(row, *, is_eligible: bool) -> CapabilityGrant:
         return CapabilityGrant(
@@ -177,6 +183,8 @@ def scope_capabilities(
                 on_request=on_request,
                 member_count=member_counts.get(pid) if kind == "group" else None,
                 last_activity_at=rp.last_activity_at if rp and kind != "group" else None,
+                owner_count=len(owned[pid].people) if pid in owned and owned[pid].known else None,
+                owners_elsewhere=pid in owned and owned[pid].registered_elsewhere,
             )
         )
 

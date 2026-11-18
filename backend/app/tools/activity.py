@@ -135,6 +135,7 @@ def run_pull(pull_id: int) -> None:
                         record_entra_audit_changes,
                         refine_from_directory_audits,
                     )
+                    from app.core.owner_changes import record_owner_audit_changes
 
                     refine_from_directory_audits(session)
                     # Entra role changes no check saw: before the first check that read
@@ -143,6 +144,8 @@ def run_pull(pull_id: int) -> None:
                     # collection) the history fills in by itself. Adds only what is
                     # missing, so running it each hour is safe.
                     record_entra_audit_changes(session)
+                    # Owners added or removed, the same way.
+                    record_owner_audit_changes(session)
                 except Exception:
                     logger.exception("changes refinement after pull %s failed", pull_id)
                     session.rollback()

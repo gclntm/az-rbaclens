@@ -80,6 +80,29 @@ class PrincipalSummary(BaseModel):
     eligible: int = 0
 
 
+class OwnerRead(BaseModel):
+    """Someone who owns an app or group: an app's owner can act as it, a group's
+    owner decides its members. ``via``: service_principal | registration | group."""
+
+    owner_id: str
+    owner_name: str | None
+    owner_type: str | None
+    via: list[str]
+
+
+class OwnedRead(BaseModel):
+    """An app or group the identity owns, and the most it can do."""
+
+    object_id: str
+    object_name: str | None
+    object_kind: str  # app | group
+    via: list[str]
+    level: str  # the object's strongest level among its current grants
+    scope: str
+    scope_name: str | None
+    grants: int
+
+
 class EntraActivation(BaseModel):
     """One PIM activation of an Entra role, from the Entra ID audit log: use of an
     eligibility, not a change of who has access."""
@@ -109,6 +132,12 @@ class PrincipalPage(BaseModel):
     advice: IdentityAdvice | None = None
     # Entra roles it activated through PIM, newest first (Entra ID audit log, when collected).
     entra_activations: list[EntraActivation] = []
+    # Apps and groups: who owns it (null: no check could read them); registered
+    # in another tenant: its owners are there.
+    owners: list[OwnerRead] | None = None
+    owners_elsewhere: bool = False
+    # The apps and groups holding access that it owns.
+    owns: list[OwnedRead] = []
 
 
 class OperationCount(BaseModel):

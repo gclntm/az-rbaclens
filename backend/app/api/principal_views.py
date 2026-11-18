@@ -43,6 +43,8 @@ from app.db.session import get_session
 from app.schemas.principals import (
     EntraActivation,
     OperationCount,
+    OwnedRead,
+    OwnerRead,
     PrincipalAccessRow,
     PrincipalActivity,
     PrincipalGroup,
@@ -251,6 +253,9 @@ def principal_page(
             if len(seen) < len(a.grants):
                 a.grants, a.why = seen, ""  # the sentence may name a place they don't see
         advice.actions = [a for a in advice.actions if a.grants]
+    owners, owners_elsewhere, owns = _owners_and_owned(session, view, pid, row.principal_type)
+    if vis is not None and pid not in vis.my_ids:
+        owns = [o for o in owns if vis.sees_grant_at(o.scope)]
     activations = _entra_activations(session, pid)
     if vis is not None and not (pid in vis.my_ids or vis.sees_grant_at(ENTRA_PLACE)):
         activations = []
@@ -273,7 +278,56 @@ def principal_page(
         findings=findings,
         advice=advice,
         entra_activations=activations,
+        owners=owners,
+        owners_elsewhere=owners_elsewhere,
+        owns=owns,
     )
+
+
+def _owners_and_owned(
+    session: Session, view: CurrentView, pid: str, principal_type: str | None
+) -> tuple[list[OwnerRead] | None, bool, list[OwnedRead]]:
+    """Who owns this app or group, and the apps and groups holding access it owns."""
+    from app.core.capabilities import LEVEL_RANK
+    from app.core.owners import current_owners, owned_by
+
+    owners: list[OwnerRead] | None = None
+    elsewhere = False
+    if principal_type in ("ServicePrincipal", "Group"):
+        info = current_owners(session, {pid})[pid]
+        elsewhere = info.registered_elsewhere
+        if info.known:
+            vias: dict[str, list[str]] = {}
+            names: dict[str, tuple[str | None, str | None]] = {}
+            for o in info.owners:
+                vias.setdefault(o.owner_id, []).append(o.via)
+                names[o.owner_id] = (o.owner_name, o.owner_type)
+            owners = [
+                OwnerRead(
+                    owner_id=k, owner_name=names[k][0], owner_type=names[k][1], via=sorted(set(v))
+                )
+                for k, v in vias.items()
+            ]
+    owns: list[OwnedRead] = []
+    for object_id, via in owned_by(session, pid).items():
+        ras = [ra for ra in view.ras if ra.principal_id.lower() == object_id]
+        if not ras:
+            continue  # holds nothing now
+        strongest = min(ras, key=lambda ra: LEVEL_RANK[view.capability_of(ra).level])
+        owns.append(
+            OwnedRead(
+                object_id=object_id,
+                object_name=strongest.principal_name,
+                object_kind="group" if strongest.principal_type == "Group" else "app",
+                via=via,
+                level=view.capability_of(strongest).level,
+                scope=strongest.scope,
+                scope_name=strongest.scope_name,
+                grants=len(ras),
+            )
+        )
+    owns.sort(key=lambda o: (LEVEL_RANK[o.level], (o.object_name or o.object_id).lower()))
+    return owners, elsewhere, owns
 
 
 def _entra_activations(

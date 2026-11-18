@@ -28,6 +28,13 @@ class GrantOperation(BaseModel):
     count: int
 
 
+class GrantOwner(BaseModel):
+    owner_id: str
+    owner_name: str | None
+    owner_type: str | None
+    via: list[str]
+
+
 class GrantDetail(ConditionFields, GrantOrigin):
     assignment_id: int
     principal_id: str
@@ -64,3 +71,7 @@ class GrantDetail(ConditionFields, GrantOrigin):
     review: ReviewRef | None = None
     # What to do about it, from the playbook (core/advice.py).
     advice: Advice | None = None
+    # An app's or group's grant: who owns it (an app's owner can act as it, a
+    # group's owner decides its members); null when unknown or not an app or group.
+    owners: list[GrantOwner] | None = None
+    owners_elsewhere: bool = False

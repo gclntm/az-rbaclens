@@ -8,7 +8,15 @@ from pydantic import BaseModel, Field
 
 Weight = Literal["must", "should", "could", "info"]
 Action = Literal[
-    "remove", "pim", "replace", "narrow", "ask", "fix_members", "set_responsible", "keep"
+    "remove",
+    "pim",
+    "replace",
+    "narrow",
+    "ask",
+    "fix_members",
+    "fix_owners",
+    "set_responsible",
+    "keep",
 ]
 SuggestedDecision = Literal["keep", "remove", "change", "ask"]
 

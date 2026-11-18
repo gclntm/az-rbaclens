@@ -5,11 +5,13 @@ from typing import Any
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     ForeignKey,
     Index,
     Integer,
     String,
     Text,
+    false,
     func,
     text,
 )
@@ -308,4 +310,64 @@ class RoleEligibility(Base):
         Index("uq_role_eligibilities_scan_azure", "scan_id", "azure_id", unique=True),
         Index("ix_role_eligibilities_scan_scope", "scan_id", "scope"),
         Index("ix_role_eligibilities_scan_principal", "scan_id", "principal_id"),
+    )
+
+
+class PrincipalOwner(Base):
+    """One owner of an app or group holding access, as a check read it (0043).
+
+    An app's owner can add a secret to it and act as it; a group's owner
+    decides its members (``tools/graph_owners.py``). ``via``: the app's
+    ``service_principal`` or its ``registration``, or the ``group``.
+    """
+
+    __tablename__ = "principal_owners"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    scan_id: Mapped[int] = mapped_column(
+        ForeignKey("scans.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    object_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    object_kind: Mapped[str] = mapped_column(String(10), nullable=False)  # app | group
+    via: Mapped[str] = mapped_column(String(20), nullable=False)
+    owner_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    owner_type: Mapped[str | None] = mapped_column(String(50))
+    owner_name: Mapped[str | None] = mapped_column(String(500))
+
+    __table_args__ = (
+        Index(
+            "uq_principal_owners_scan_object_via_owner",
+            "scan_id",
+            "object_id",
+            "via",
+            "owner_id",
+            unique=True,
+        ),
+        Index("ix_principal_owners_owner_id", "owner_id"),
+    )
+
+
+class ScanOwnerResolution(Base):
+    """An app or group whose owners a check could read (possibly none) (0043).
+
+    No row: Graph refused, the owners are unknown. ``registered_elsewhere``:
+    an app whose registration is in another tenant (its owners are there).
+    ``app_id``: an app's client id.
+    """
+
+    __tablename__ = "scan_owner_resolutions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    scan_id: Mapped[int] = mapped_column(
+        ForeignKey("scans.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    object_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    registered_elsewhere: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=false()
+    )
+    # The app's client id (appId), for the command that removes a registration's owner.
+    app_id: Mapped[str | None] = mapped_column(String(64))
+
+    __table_args__ = (
+        Index("uq_scan_owner_resolutions_scan_object", "scan_id", "object_id", unique=True),
     )

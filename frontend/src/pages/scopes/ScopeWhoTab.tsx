@@ -38,6 +38,7 @@ import {
   matchesFilter,
   pimSentence,
   powerText,
+  ownersNote,
   statusTag,
   summarySentence,
   type KindFilter,
@@ -331,6 +332,7 @@ function IdentityRow({ identity: i, entra = false }: { identity: CapabilityIdent
           {i.kind === "group" && i.member_count ? (
             <span className="text-quaternary"> · {i.member_count} members</span>
           ) : null}
+          {ownersNote(i) && <span className="text-quaternary"> · {ownersNote(i)}</span>}
           {!i.name && <span className={cx(TAG, TAG_TONE.unresolved)}>unresolved</span>}
         </span>
         <span className={WHO_HOW}>

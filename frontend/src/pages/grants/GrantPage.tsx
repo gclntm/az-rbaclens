@@ -212,6 +212,27 @@ export default function GrantPage() {
             )}
             {!grant.principal_name && <span className={cx(TAG, TAG_TONE.unresolved)}>no longer in Entra ID?</span>}
           </dd>
+          {((grant.owners?.length ?? 0) > 0 || grant.owners_elsewhere) && (
+            <>
+              <dt className={FACT_DT}>Owners</dt>
+              <dd className={FACT_DD}>
+                {(grant.owners ?? []).map((o, i) => (
+                  <span key={o.owner_id}>
+                    {i > 0 && ", "}
+                    <Link to={principalHref(o.owner_id)}>{o.owner_name ?? o.owner_id}</Link>
+                  </span>
+                ))}
+                <span className="text-quaternary">
+                  {(grant.owners?.length ?? 0) > 0 &&
+                    (grant.principal_type === "Group"
+                      ? " · each decides the group's members, and so who has this access"
+                      : " · each can add a secret to the app and use this access as it")}
+                  {grant.owners_elsewhere &&
+                    `${(grant.owners?.length ?? 0) > 0 ? " · " : ""}registered in its publisher's tenant: its registration's owners are there`}
+                </span>
+              </dd>
+            </>
+          )}
 
           <dt className={FACT_DT}>Can do</dt>
           <dd className={FACT_DD}>

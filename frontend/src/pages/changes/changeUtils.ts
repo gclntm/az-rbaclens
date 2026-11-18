@@ -1,6 +1,6 @@
 import { type AccessChange, type ChangeKind, isEntraPlace } from "@/api/client";
 
-export const GIVEN: ChangeKind[] = ["granted", "eligible_added", "member_added"];
+export const GIVEN: ChangeKind[] = ["granted", "eligible_added", "member_added", "owner_added"];
 
 export function isGiven(kind: ChangeKind): boolean {
   return GIVEN.includes(kind);
@@ -11,7 +11,7 @@ export type ChangeParts = {
   verb: string;
   /** Role phrase after the verb, e.g. "Owner". */
   role: string;
-  /** For memberships: the group, linked by the page. */
+  /** For memberships and owners: the group or app, linked by the page. */
   group: string | null;
   /** Text between group and role, e.g. ", so they now have". */
   bridge: string | null;
@@ -37,6 +37,10 @@ export function changeParts(c: AccessChange): ChangeParts {
       return { verb: "joined", role, group, bridge: ", so they now have" };
     case "member_removed":
       return { verb: "left", role, group, bridge: ", and lost" };
+    case "owner_added":
+      return { verb: "became an owner of", role, group, bridge: ", so they can use its" };
+    case "owner_removed":
+      return { verb: "is no longer an owner of", role, group, bridge: ", and can no longer use its" };
   }
 }
 
@@ -68,6 +72,9 @@ export function sourceText(c: AccessChange): string {
   }
   if (c.kind === "member_added" || c.kind === "member_removed") {
     return "first seen by the daily check · who changed the group is not known here: see the Entra ID audit log";
+  }
+  if (c.kind === "owner_added" || c.kind === "owner_removed") {
+    return "first seen by the daily check · who changed the owners is not known here: see the Entra ID audit log";
   }
   return "first seen by the daily check · the Activity Log may still say who did it";
 }

@@ -31,6 +31,7 @@ from app.core.advice_texts import (
     WEIGHT_RANK,
     create_command,
     delete_command,
+    owner_remove_commands,
 )
 from app.core.current_view import CurrentView, current_view, grant_id
 from app.core.entra_roles import ENTRA_PLACE
@@ -317,6 +318,7 @@ def _fired(ctx: AdviceContext, f: _Facts) -> list[tuple[str, str, dict[str, Any]
             f"custom role {f.role}; built-in roles are kept up to date by Microsoft.",
             best=best,
         )
+    _owner_rules(f, fire)
     if "membership_unknown" in f.findings:
         fire(
             "R11 unknown-members",
@@ -344,6 +346,32 @@ def _fired(ctx: AdviceContext, f: _Facts) -> list[tuple[str, str, dict[str, Any]
         )
     _place_notes(ctx, f, fire)
     return out
+
+
+_OWNER_CATEGORIES = ("app_owned_by_app", "app_owners", "group_owners")
+
+
+def _owner_rules(f: _Facts, fire: Any) -> None:
+    """R18 when a guest owns the app or group, R17 for its other owners (core/owner_findings.py)."""
+
+    def extra(*categories: str) -> dict[str, Any]:
+        owners: dict[str, dict[str, Any]] = {}
+        ev: dict[str, Any] = {}
+        for c in categories:
+            ev = f.findings[c].evidence or {}
+            for o in ev.get("owners") or []:
+                owners.setdefault(o.get("id"), o)
+        return {
+            "object_kind": ev.get("object_kind"),
+            "app_id": ev.get("app_id"),
+            "owners": list(owners.values()),
+        }
+
+    if "guest_owner" in f.findings:
+        fire("R18 guest-owner", f.findings["guest_owner"].detail, **extra("guest_owner"))
+    found = [c for c in _OWNER_CATEGORIES if c in f.findings]
+    if found:
+        fire("R17 owners", " ".join(f.findings[c].detail for c in found), **extra(*found))
 
 
 def _place_notes(ctx: AdviceContext, f: _Facts, fire: Any) -> None:
@@ -415,6 +443,30 @@ def _how(f: _Facts, rule: str, extra: dict[str, Any]) -> tuple[list[str], list[s
             ),
             "Or check the members in Entra ID › Groups.",
         ], []
+    if action == "fix_owners":
+        name = ra.principal_name or ra.principal_id
+        app = extra.get("object_kind") == "app"
+        first = (
+            "Ask whoever invited the guest why they own it; if they don't need to, remove them as owner:"
+            if rule == "R18 guest-owner"
+            else (
+                "Keep as owners only those who must change the app, or none; remove the others:"
+                if app
+                else "Keep as owners only the admins who manage its members; remove the others:"
+            )
+        )
+        portal = (
+            f"Or in the Entra admin center: App registrations › {name} › Owners, "
+            f"and Enterprise applications › {name} › Owners."
+            if app
+            else f"Or in the Entra admin center: Groups › {name} › Owners."
+        )
+        commands = owner_remove_commands(
+            ra.principal_id.lower(),
+            extra.get("app_id"),
+            extra.get("owners") or [],
+        )
+        return [first, portal], commands
     if action == "set_responsible":
         return ["An admin sets someone in Settings › Who is responsible."], []
     return [], []

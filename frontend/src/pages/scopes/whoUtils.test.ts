@@ -9,6 +9,7 @@ import {
   howText,
   levelCounts,
   matchesFilter,
+  ownersNote,
   powerText,
   statusTag,
   summarySentence,
@@ -154,5 +155,22 @@ describe("matchesFilter and foldApps", () => {
     const { shown, folded } = foldApps([person, ...apps]);
     expect(shown).toEqual([person]);
     expect(folded.map((i) => i.id)).toEqual(["a", "b", "c", "d"]);
+  });
+});
+
+describe("ownersNote", () => {
+  it("says what an app's or group's owners can do", () => {
+    expect(ownersNote(identity({ kind: "app", owner_count: 2 }))).toBe("2 owners can act as it");
+    expect(ownersNote(identity({ kind: "group", owner_count: 1 }))).toBe("1 owner decides its members");
+    expect(ownersNote(identity({ kind: "group", owner_count: 3 }))).toBe("3 owners decide its members");
+  });
+  it("is silent when owners are none or unknown, and for people", () => {
+    expect(ownersNote(identity({ kind: "app", owner_count: 0 }))).toBeNull();
+    expect(ownersNote(identity({ kind: "app", owner_count: null }))).toBeNull();
+    expect(ownersNote(identity({ kind: "person", owner_count: 2 }))).toBeNull();
+  });
+  it("points to the publisher for apps registered elsewhere", () => {
+    expect(ownersNote(identity({ kind: "app", owners_elsewhere: true }))).toBe("owned in its publisher's tenant");
+    expect(ownersNote(identity({ kind: "app", owners_elsewhere: true, owner_count: 1 }))).toBe("1 owner can act as it");
   });
 });

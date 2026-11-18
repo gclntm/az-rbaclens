@@ -99,6 +99,7 @@ class AccessChange(Base):
         ForeignKey("scans.id", ondelete="SET NULL"), index=True
     )
     # granted | removed | eligible_added | eligible_removed | member_added | member_removed
+    # | owner_added | owner_removed (0043: ``via_group`` is then the app or group owned)
     kind: Mapped[str] = mapped_column(String(20), nullable=False)
     source: Mapped[str] = mapped_column(String(20), nullable=False)
     scope: Mapped[str] = mapped_column(Text, nullable=False)
@@ -140,7 +141,7 @@ class AccessChange(Base):
         Index("uq_access_changes_subject", "subject_key", "kind", "occurred_at", unique=True),
         CheckConstraint(
             "kind IN ('granted', 'removed', 'eligible_added', 'eligible_removed', "
-            "'member_added', 'member_removed')",
+            "'member_added', 'member_removed', 'owner_added', 'owner_removed')",
             name="ck_access_changes_kind",
         ),
         CheckConstraint(

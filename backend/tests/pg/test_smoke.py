@@ -33,6 +33,8 @@ from tests.test_mgmt_group_log import *  # noqa: F403
 from tests.test_notifications import *  # noqa: F403
 from tests.test_notify_email import *  # noqa: F403
 from tests.test_operation_names import *  # noqa: F403
+from tests.test_owner_changes import *  # noqa: F403
+from tests.test_owners import *  # noqa: F403
 from tests.test_pim import *  # noqa: F403
 from tests.test_pim_views import *  # noqa: F403
 from tests.test_principals import *  # noqa: F403

@@ -76,3 +76,17 @@ describe("change words", () => {
     expect(days.map((d) => d.items.map((c) => c.id))).toEqual([[3, 2], [1]]);
   });
 });
+
+describe("owner changes", () => {
+  it("say whose owner they became and what it lets them use", () => {
+    expect(
+      changeSentence(change({ kind: "owner_added", via_group_name: "sp-deploy", role_name: "Owner", principal_name: "ada" })),
+    ).toMatch(/^ada became an owner of sp-deploy, so they can use its Owner on /);
+    expect(
+      changeSentence(change({ kind: "owner_removed", via_group_name: "grp-ops", role_name: "Reader", principal_name: "bob" })),
+    ).toMatch(/^bob is no longer an owner of grp-ops, and can no longer use its Reader on /);
+    expect(isGiven("owner_added")).toBe(true);
+    expect(isGiven("owner_removed")).toBe(false);
+    expect(sourceText(change({ source: "daily_check", kind: "owner_added" }))).toMatch(/who changed the owners/);
+  });
+});

@@ -754,6 +754,25 @@ export type CapabilityIdentity = {
   on_request: boolean;
   member_count: number | null;
   last_activity_at: string | null;
+  /** Apps and groups: how many own it (an app's owner can act as it, a group's owner decides its members); null = unknown. */
+  owner_count?: number | null;
+  /** An app registered in another tenant: its owners are there. */
+  owners_elsewhere?: boolean;
+};
+
+/** Someone who owns an app or group; ``via``: service_principal | registration | group. */
+export type OwnerRef = { owner_id: string; owner_name: string | null; owner_type: string | null; via: string[] };
+
+/** An app or group the identity owns, and the most it can do. */
+export type OwnedRef = {
+  object_id: string;
+  object_name: string | null;
+  object_kind: "app" | "group";
+  via: string[];
+  level: CapabilityLevel;
+  scope: string;
+  scope_name: string | null;
+  grants: number;
 };
 
 export type CapabilityLevelGroup = {
@@ -973,6 +992,11 @@ export type PrincipalPage = {
   advice?: IdentityAdvice | null;
   /** Entra roles it activated through PIM, newest first (from the Entra ID audit log). */
   entra_activations?: { at: string; role_id: string; role_name: string | null }[];
+  /** Apps and groups: who owns it (null = unknown); registered in another tenant. */
+  owners?: OwnerRef[] | null;
+  owners_elsewhere?: boolean;
+  /** The apps and groups holding access that it owns. */
+  owns?: OwnedRef[];
 };
 
 export type PrincipalActivity = {
@@ -1080,7 +1104,9 @@ export type ChangeKind =
   | "eligible_added"
   | "eligible_removed"
   | "member_added"
-  | "member_removed";
+  | "member_removed"
+  | "owner_added"
+  | "owner_removed";
 
 export type AccessChange = {
   id: number;
@@ -1401,7 +1427,7 @@ export type GrantPower = { key: CapabilityLevel; label: string; allowed: boolean
 // ---- advice (core/advice.py) ---------------------------------------------------------------
 
 export type AdviceWeight = "must" | "should" | "could" | "info";
-export type AdviceAction = "remove" | "pim" | "replace" | "narrow" | "ask" | "fix_members" | "set_responsible" | "keep";
+export type AdviceAction = "remove" | "pim" | "replace" | "narrow" | "ask" | "fix_members" | "fix_owners" | "set_responsible" | "keep";
 export type SuggestedDecision = "keep" | "remove" | "change" | "ask";
 
 export type AdviceNote = { rule: string; weight: AdviceWeight; title: string };
@@ -1576,6 +1602,9 @@ export type GrantDetail = GrantOrigin & {
   findings: CurrentFinding[];
   review?: ReviewRef | null;
   advice?: Advice | null;
+  /** An app's or group's grant: who owns it; null = unknown or not an app or group. */
+  owners?: OwnerRef[] | null;
+  owners_elsewhere?: boolean;
 };
 
 /** Scope ids are ARM paths; the API takes them without the leading slash. */

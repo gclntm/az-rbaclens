@@ -200,3 +200,17 @@ export function levelCounts(group: CapabilityLevelGroup): string {
   ].filter(Boolean);
   return parts.length ? parts.join(" · ") : "nobody";
 }
+
+/**
+ * "2 owners can act as it" (an app) / "1 owner decides its members" (a group); null when
+ * it has none, they are unknown, or it is a person.
+ */
+export function ownersNote(identity: CapabilityIdentity): string | null {
+  if (identity.kind === "app" && identity.owners_elsewhere && !identity.owner_count) return "owned in its publisher's tenant";
+  const n = identity.owner_count;
+  if (!n) return null;
+  const owners = n === 1 ? "1 owner" : `${n} owners`;
+  if (identity.kind === "app") return `${owners} can act as it`;
+  if (identity.kind === "group") return `${owners} ${n === 1 ? "decides" : "decide"} its members`;
+  return null;
+}
