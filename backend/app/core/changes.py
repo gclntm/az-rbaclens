@@ -33,7 +33,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -111,7 +111,16 @@ def _grants(session: Session, scan_id: int) -> dict[str, _Grant]:
             RoleAssignment.created_on,
             RoleAssignment.created_by,
             RoleAssignment.created_by_name,
-        ).where(RoleAssignment.scan_id == scan_id)
+        )
+        .where(RoleAssignment.scan_id == scan_id)
+        # A PIM activation is use of an eligibility, not a grant: a check that
+        # runs during one must not report it as given, then removed.
+        .where(
+            or_(
+                RoleAssignment.assignment_type.is_(None),
+                RoleAssignment.assignment_type != "Activated",
+            )
+        )
     ).all()
     out: dict[str, _Grant] = {}
     for r in rows:
