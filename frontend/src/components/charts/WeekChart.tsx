@@ -17,7 +17,7 @@ export function weekText(w: Week): string {
 
 /**
  * Access given and removed per week, as stacked bars (Untitled UI's bar chart on
- * recharts, docs/plan-untitled-ui.md phase 5). Green is given and red removed,
+ * recharts, docs/design.md). Green is given and red removed,
  * our accents in both themes; no animation. Loaded on its own (React.lazy in
  * ChangesFeed), so pages without the chart don't download recharts.
  */

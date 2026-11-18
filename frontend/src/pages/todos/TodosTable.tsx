@@ -12,8 +12,7 @@ import { dueWords, STATUS_LABEL } from "./todoUtils";
 /**
  * The to-dos as one compact table. The cards view keeps the steps and commands.
  * A native table with the shared look (styles/redesign.css), like every other
- * table: Tab goes link by link (React Aria's table moved by arrow keys instead,
- * docs/plan-untitled-ui.md, phase 4). Untitled UI badges in the cells.
+ * table: Tab goes link by link (React Aria's table moved by arrow keys instead). Untitled UI badges in the cells.
  */
 export default function TodosTable({ rows }: { rows: Todo[] }) {
   return (

@@ -4,7 +4,7 @@ Revision ID: 0017
 Revises: 0016
 Create Date: 2026-10-22
 
-Phase 1 of docs/redesign-plan.md: the coverage analysis moves from
+Redesign, phase 1: the coverage analysis moves from
 request time to snapshot end. ``scan_coverage`` caches the full
 ``RoleCoverageResult`` per scan so the Coverage tab is a read;
 ``findings`` is the derived review worklist (replaced per recompute);

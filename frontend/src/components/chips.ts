@@ -1,5 +1,5 @@
 /**
- * Small controls in Untitled UI's look (docs/plan-untitled-ui.md, phase 3), as
+ * Small controls in Untitled UI's look (docs/design.md), as
  * class names so each keeps its element: a filter pill may be a button, a label
  * around a checkbox, or a link. Each is a .uui region (styles/uui-reset.css), so
  * old element rules don't reach in; the old class names stay as layout hooks.

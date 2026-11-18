@@ -4,7 +4,7 @@ import { Button as UntitledButton, styles } from "@/ui/untitled/components/base/
 import { cx } from "@/components/classes";
 
 /**
- * The app's button (docs/plan-untitled-ui.md, phase 3): Untitled UI's button
+ * The app's button (docs/design.md): Untitled UI's button
  * with the props our pages already use.
  *
  * - ``disabled`` maps to React Aria's ``isDisabled``.

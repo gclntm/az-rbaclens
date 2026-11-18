@@ -1,4 +1,4 @@
-/* The app's base layer (docs/plan-untitled-ui.md, phase 7): its colour and size
+/* The app's base layer (docs/design.md): its colour and size
    variables for both themes (tokens.css maps Untitled UI's tokens onto them), and
    the element defaults: page font, links, focus ring, form fields. It sits in the
    lowest cascade layer, below everything that styles by class. */
@@ -154,8 +154,8 @@ body {
 }
 
 /* Form fields in Untitled UI's input look (its "sm" input: 36px, 14px text, an
-   8px corner, a light shadow, a brand ring on focus), docs/plan-untitled-ui.md
-   phase 3. The fields stay native; contexts below set only their size. */
+   8px corner, a light shadow, a brand ring on focus).
+   The fields stay native; contexts below set only their size. */
 input[type="text"],
 input[type="search"],
 input[type="number"],

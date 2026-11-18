@@ -7,7 +7,7 @@ import { FeaturedIcon } from "@/ui/untitled/components/foundations/featured-icon
 
 /**
  * "Are you sure?" in Untitled UI's modal look, instead of the browser's confirm()
- * (docs/plan-untitled-ui.md, phase 3). ``await confirm({...})`` resolves to true
+ * (docs/design.md). ``await confirm({...})`` resolves to true
  * on the action button, false on Cancel, Escape or a click beside the dialog.
  * Focus moves in (to Cancel, the safe choice) and returns afterwards.
  */

@@ -42,7 +42,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
-    // Untitled UI's components switch on this class (docs/plan-untitled-ui.md).
+    // Untitled UI's components switch on this class (docs/design.md).
     document.documentElement.classList.toggle("dark-mode", theme === "dark");
   }, [theme]);
 

@@ -11,7 +11,7 @@ import OpenAccessBanner from "@/components/OpenAccessBanner";
 import { RoleDetailProvider } from "@/components/RoleDetailDrawer";
 import SideMenu from "@/components/SideMenu";
 
-// Each page is its own file, loaded when first opened (docs/plan-untitled-ui.md, phase 1).
+// Each page is its own file, loaded when first opened (docs/design.md).
 const ChangesPage = lazy(() => import("@/pages/changes/ChangesPage"));
 const EventsPage = lazy(() => import("@/pages/events/EventsPage"));
 const FindingsPage = lazy(() => import("@/pages/findings/FindingsPage"));

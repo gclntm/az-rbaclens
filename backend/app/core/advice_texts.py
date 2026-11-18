@@ -1,7 +1,7 @@
 """The playbook's fixed parts: one entry per rule, and the "how" builders.
 
 Rule ids and wording are part of the audit trail: change a text freely,
-but never reuse an id for a different rule. See docs/plan-advice-and-report.md §3.
+but never reuse an id for a different rule. See docs/api.md (Advice and AI wording).
 """
 
 from __future__ import annotations

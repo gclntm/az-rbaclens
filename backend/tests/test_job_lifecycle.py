@@ -1,5 +1,5 @@
 """Job lifecycle: in-flight uniqueness, failure path, latest-scan selection,
-cascade delete. Covers the P0 items in docs/redesign-plan.md § 3.
+cascade delete: the P0 fixes of migration 0016.
 
 ``run_scan`` / ``run_pull`` are exercised directly with their Azure
 calls monkey-patched, so the DB transitions are what is under test.

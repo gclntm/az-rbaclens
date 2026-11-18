@@ -4,7 +4,7 @@ Revision ID: 0021
 Revises: 0020
 Create Date: 2026-10-22
 
-Phase 4 of docs/redesign-plan.md. The principal page lists a
+Redesign, phase 4. The principal page lists a
 principal's own Activity Log events, matched on the JWT object-id
 claim inside ``raw``. Without an index that is a full scan of the
 table (~7 s for 2 M events). The indexed expression must stay

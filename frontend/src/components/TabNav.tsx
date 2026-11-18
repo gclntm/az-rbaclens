@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { Badge } from "@/ui/untitled/components/base/badges/badges";
 
 /**
- * Section tabs in Untitled UI's underline look (docs/plan-untitled-ui.md, phase 3).
+ * Section tabs in Untitled UI's underline look (docs/design.md).
  * They stay links in a <nav> (each section has its own address), not ARIA tabs.
  * The bottom line is an inset shadow, so the row can scroll sideways on a phone
  * without clipping the chosen tab's underline.

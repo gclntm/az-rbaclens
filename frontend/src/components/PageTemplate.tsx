@@ -9,7 +9,7 @@ import { FeaturedIcon } from "@/ui/untitled/components/foundations/featured-icon
 
 /**
  * The building blocks of a page: page header, breadcrumbs, status tiles,
- * section cards and state pills, on Untitled UI (docs/plan-untitled-ui.md, phase 3).
+ * section cards and state pills, on Untitled UI (docs/design.md).
  *
  * Colour always says a state, never decorates:
  * ok (green) = up to date or done · warn (amber) = needs attention ·

@@ -4,7 +4,7 @@ Revision ID: 0018
 Revises: 0017
 Create Date: 2026-10-22
 
-Phase 2 of docs/redesign-plan.md. ``scopes`` makes "the current state of
+Redesign, phase 2. ``scopes`` makes "the current state of
 prod" one row (``latest_scan_id``) instead of a ``max(created_at)``
 dance plus JSONB parsing; ``principals`` gives name-first tables and an
 indexed principal lookup instead of ``lower(principal_id)`` seq scans.

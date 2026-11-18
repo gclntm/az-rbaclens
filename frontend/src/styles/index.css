@@ -1,5 +1,5 @@
 /*
- * One entry for every stylesheet, in cascade-layer order (docs/plan-untitled-ui.md).
+ * One entry for every stylesheet, in cascade-layer order (docs/design.md).
  *
  * - theme: Tailwind CSS v4's and Untitled UI's tokens; tokens.css maps Untitled
  *   UI's semantic colours onto our variables, so both themes follow data-theme.

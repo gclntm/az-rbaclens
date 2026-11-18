@@ -20,7 +20,7 @@ import {
 
 /**
  * The app's icons, by name, drawn from Untitled UI Icons (@untitledui/icons)
- * since phase 1 of docs/plan-untitled-ui.md. Stroked with currentColor so they
+ * (docs/design.md). Stroked with currentColor so they
  * follow the text colour in both themes. Decorative only (the label carries the
  * meaning), hence aria-hidden.
  */

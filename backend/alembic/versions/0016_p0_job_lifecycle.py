@@ -4,7 +4,7 @@ Revision ID: 0016
 Revises: 0015
 Create Date: 2026-10-22
 
-Three correctness fixes from docs/redesign-plan.md § 3 (P0):
+Three correctness fixes (P0):
 
 1. ``heartbeat_at`` on ``scans`` and ``activity_pulls``. Workers bump it
    on every progress update; the sweeper measures staleness from it

@@ -4,7 +4,7 @@ Revision ID: 0022
 Revises: 0021
 Create Date: 2026-10-22
 
-Phase 5 of docs/redesign-plan.md. ``raw`` was most of the table's size
+Redesign, phase 5. ``raw`` was most of the table's size
 (a few KB per event) and the app reads one value from it, the caller's
 object id. This migration:
 

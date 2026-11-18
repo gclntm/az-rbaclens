@@ -1,6 +1,6 @@
 /**
  * The app's shared looks as Tailwind class strings on Untitled UI's tokens
- * (docs/plan-untitled-ui.md, phase 7). They replace the old shared CSS classes
+ * (docs/design.md). They replace the old shared CSS classes
  * (.card, .table-compact, .badge…) one for one, with the same values: arbitrary
  * values where Tailwind's scale would change a size or a line height.
  *

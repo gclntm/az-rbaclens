@@ -4,7 +4,7 @@ Revision ID: 0020
 Revises: 0019
 Create Date: 2026-10-22
 
-Phase 3 of docs/redesign-plan.md. The scheduler loop in
+Redesign, phase 3. The scheduler loop in
 ``app.core.scheduler`` starts due schedules as ordinary ``scans`` /
 ``activity_pulls`` rows, replacing the manual pull form.
 """

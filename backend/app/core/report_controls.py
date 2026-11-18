@@ -1,6 +1,6 @@
 """Control statuses for the assessment report: fixed thresholds, one function per control.
 
-See docs/plan-advice-and-report.md §5. Each control says met, partly met
+See docs/api.md (Report). Each control says met, partly met
 or not met, with the facts it rests on, so an auditor can check the logic.
 """
 
