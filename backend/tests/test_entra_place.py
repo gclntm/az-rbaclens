@@ -707,3 +707,157 @@ def test_a_powerful_entra_role_held_from_another_tenant_needs_a_look(app_with_sq
     got = _entra_findings(app_with_sqlite)
     assert got[("foreign_group", "partner-grp")]["severity"] == "high"
     assert ("entra_role_via_group", "partner-grp") not in got
+
+
+# ---- Entra role changes straight from the audit log (0.34.1) --------------------------------
+
+
+def _entra_changes(db) -> list[tuple[str, str, str | None, str]]:
+    from app.db.models import AccessChange
+
+    return sorted(
+        (c.kind, c.principal_id, c.actor_name, c.source)
+        for c in db.query(AccessChange).filter_by(scope=ENTRA_PLACE).all()
+    )
+
+
+def test_role_changes_no_check_saw_come_from_the_audit_log(app_with_sqlite: TestClient):
+    from app.core.changes import rebuild_changes, record_entra_audit_changes
+    from app.db.session import SessionLocal
+    from app.tools import entra_audit as ea
+
+    _world(app_with_sqlite)
+    with SessionLocal() as db:
+        # dave got Global Administrator and lost it again between the two checks;
+        # PIM and the directory both recorded the grant: one change, by the person.
+        db.add(
+            ea.parse(
+                _pim_entry(
+                    "d1",
+                    "Add member to role in PIM completed (permanent)",
+                    "dave-id",
+                    GA,
+                    PERSON,
+                    40,
+                )
+            )
+        )
+        db.add(ea.parse(_core_entry("d2", "Add member to role", "dave-id", GA, PIM_APP, 40)))
+        db.add(ea.parse(_core_entry("d3", "Remove member from role", "dave-id", GA, PERSON, 20)))
+        # frank lost Global Reader days before RBAC Lens first read Entra ID.
+        db.add(
+            ea.parse(
+                _core_entry(
+                    "f1", "Remove member from role", "frank-id", GREADER, PERSON, 3 * 24 * 60
+                )
+            )
+        )
+        # ada activated Global Administrator through PIM: use, not a change.
+        db.add(
+            ea.parse(
+                _pim_entry(
+                    "a1", "Add member to role completed (PIM activation)", "ada-id", GA, PIM_APP, 30
+                )
+            )
+        )
+        db.add(ea.parse(_core_entry("a2", "Add member to role", "ada-id", GA, PIM_APP, 30)))
+        # carol's grant, already reported by check B, attributed by the same entries.
+        db.add(
+            ea.parse(
+                _pim_entry(
+                    "c1",
+                    "Add member to role in PIM completed (permanent)",
+                    "carol-id",
+                    GA,
+                    PERSON,
+                    12,
+                )
+            )
+        )
+        db.commit()
+
+        # dave given and removed, frank removed; carol's grant is in the feed already.
+        assert record_entra_audit_changes(db) == 3
+        got = _entra_changes(db)
+        assert ("granted", "dave-id", "admin@example.org", "entra_audit") in got
+        assert ("removed", "dave-id", "admin@example.org", "entra_audit") in got
+        assert ("removed", "frank-id", "admin@example.org", "entra_audit") in got
+        assert not [c for c in got if c[1] == "ada-id"]
+        assert len([c for c in got if c[1] == "carol-id" and c[0] == "granted"]) == 1
+        assert record_entra_audit_changes(db) == 0  # once
+
+        rebuild_changes(db)  # the feed rebuilt from the checks keeps them
+        assert ("removed", "frank-id", "admin@example.org", "entra_audit") in _entra_changes(db)
+        assert len([c for c in _entra_changes(db) if c[1] == "carol-id" and c[0] == "granted"]) == 1
+
+
+def test_a_change_from_the_audit_log_is_not_reported_again_by_the_next_check(
+    app_with_sqlite: TestClient,
+):
+    from app.core.changes import record_changes_for_scan, record_entra_audit_changes
+    from app.db.models import AccessChange, Scan
+    from app.db.session import SessionLocal
+    from app.tools import entra_audit as ea
+
+    _world(app_with_sqlite)
+    with SessionLocal() as db:
+        db.add(ea.parse(_core_entry("e1", "Add member to role", "erin-id", GA, PERSON, -1)))
+        db.commit()
+        assert record_entra_audit_changes(db) == 1  # the hourly collection, before the check
+        now = datetime.now(UTC) + timedelta(minutes=5)
+        scan = Scan(
+            scope=MG,
+            scope_level="mgmt_group",
+            status="done",
+            created_at=now,
+            finished_at=now,
+            hierarchy=WITH_ENTRA,
+            eligibility_status="read",
+        )
+        db.add(scan)
+        db.flush()
+        db.add_all(
+            [
+                _ra(
+                    scan.id, SUB_SCOPE, "subscription", "sp-1", "ServicePrincipal", OWNER, "sp-one"
+                ),
+                _entra(scan.id, "ada-id", "User", GA_PATH, "ada@example.org"),
+                _entra(scan.id, "carol-id", "User", GA_PATH, "carol@example.org"),
+                _entra(scan.id, "grp-readers", "Group", GREADER_PATH, "grp-readers"),
+                _entra(scan.id, "erin-id", "User", GA_PATH, "erin@example.org"),
+            ]
+        )
+        db.commit()
+        record_changes_for_scan(db, scan.id)
+        erin = db.query(AccessChange).filter_by(principal_id="erin-id", kind="granted").all()
+        assert [(c.source, c.actor_name) for c in erin] == [("entra_audit", "admin@example.org")]
+
+
+def test_each_collection_fills_in_entra_changes_from_every_entry_on_file(
+    app_with_sqlite: TestClient, monkeypatch
+):
+    """After an upgrade the entries are already stored: the next hourly collection,
+    whose own window is empty, adds the changes they hold."""
+    from app.db.models import AccessChange
+    from app.db.session import SessionLocal
+    from app.tools import entra_audit as ea
+    from tests.test_entra_audit import _Answer, _Graph, _run
+
+    _world(app_with_sqlite)
+    with SessionLocal() as db:
+        db.add(
+            ea.parse(
+                _core_entry(
+                    "old", "Remove member from role", "frank-id", GREADER, PERSON, 3 * 24 * 60
+                )
+            )
+        )
+        db.commit()
+    _run(monkeypatch, _Graph(_Answer(200, {"value": []})))
+    with SessionLocal() as db:
+        frank = db.query(AccessChange).filter_by(principal_id="frank-id").one()
+        assert (frank.kind, frank.source, frank.actor_name) == (
+            "removed",
+            "entra_audit",
+            "admin@example.org",
+        )

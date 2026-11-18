@@ -199,7 +199,9 @@ and `weeks[]` per ISO week. `items[].source` is `activity_log` (exact, with
 author), `created_on` (Azure's or Entra's own record), `entra_audit` (someone
 joining or leaving a group, or an Entra role given or removed, from the
 Entra ID audit log) or `daily_check` (first seen, no author). PIM
-activations are never changes. With `entra_audit`, `actor_type` is `user` or
+activations are never changes. Entra role changes also come straight from
+the audit log after each collection (`record_entra_audit_changes`): no
+`check_id`, and never twice for what a check reports. With `entra_audit`, `actor_type` is `user` or
 `app` (Entra records an app as the author: Teams or Outlook for Microsoft 365
 groups, access packages, PIM, the AD sync) and `direct_group_name` names the
 nested group the member was added to or removed from, when it isn't the

@@ -670,7 +670,8 @@ def record_changes_for_scan(session: Session, scan_id: int) -> int:
 
 
 def rebuild_changes(session: Session) -> int:
-    """Recompute the whole feed from the checks on file, oldest first. Commits."""
+    """Recompute the whole feed from the checks on file, oldest first, then the
+    Entra role changes the audit log holds. Commits."""
     session.execute(delete(AccessChange))
     session.commit()
     total = 0
@@ -678,7 +679,164 @@ def rebuild_changes(session: Session) -> int:
         select(Scan.id).where(Scan.status == "done").order_by(Scan.finished_at, Scan.id)
     ).all():
         total += record_changes_for_scan(session, scan_id)
-    return total
+    return total + record_entra_audit_changes(session)
+
+
+# ---- Entra role changes straight from the audit log ---------------------------------------
+
+_AUDIT_KIND = {
+    ("role", "add"): "granted",
+    ("role", "remove"): "removed",
+    ("eligible", "add"): "eligible_added",
+    ("eligible", "remove"): "eligible_removed",
+}
+# One action recorded twice (by PIM with the person, by the directory with the PIM
+# service) lands within seconds; entries this close are one change.
+_SAME_ACTION = timedelta(minutes=10)
+# A check sees a change at the latest at the next daily check (plus a margin).
+_SEEN_BY_A_CHECK = timedelta(hours=26)
+
+
+def _role_name_from(raw: dict[str, Any] | None) -> str | None:
+    """The role's name as the audit entry gives it (``Role.DisplayName``, or the Role target)."""
+    for t in (raw or {}).get("targetResources") or []:
+        for p in t.get("modifiedProperties") or []:
+            if p.get("displayName") == "Role.DisplayName":
+                value = str(p.get("newValue") or p.get("oldValue") or "").strip('"')
+                if value:
+                    return value
+        if str(t.get("type") or t.get("Type") or "").lower() == "role" and t.get("displayName"):
+            return t["displayName"]
+    return None
+
+
+def record_entra_audit_changes(session: Session, since: datetime | None = None) -> int:
+    """Add the Entra role changes the audit log holds that the feed doesn't have yet. Commits.
+
+    The changes feed compares checks, so it misses what happened before the
+    first check that read Entra ID, and a role given and removed between two
+    checks. The audit log has both: each role or eligibility given or removed
+    becomes a change, with its author and exact time. One action recorded
+    twice (PIM and the directory) is one change, the person's entry first;
+    the directory's own record of a PIM activation is not a change; a change
+    already in the feed (from a check, at its audit time or first seen by a
+    later check) is not added again. Returns how many were added.
+    """
+    q = (
+        select(DirectoryAuditEvent)
+        .where(DirectoryAuditEvent.kind.in_(("role", "eligible", "activation")))
+        .order_by(DirectoryAuditEvent.occurred_at, DirectoryAuditEvent.id)
+    )
+    if since is not None:
+        q = q.where(DirectoryAuditEvent.occurred_at >= since - _ACTIVATION_NEAR)
+    rows = [
+        e
+        for e in session.scalars(q).all()
+        if (e.result or "success").lower() == "success" and e.role_id and e.member_id
+    ]
+    activations: dict[tuple[str, str, str], list[datetime]] = defaultdict(list)
+    entries: dict[tuple[str, str, str, str], list[DirectoryAuditEvent]] = defaultdict(list)
+    for e in rows:
+        if e.kind == "activation":
+            activations[(e.member_id, e.role_id or "", e.action)].append(as_utc(e.occurred_at))
+        elif since is None or as_utc(e.occurred_at) >= since:
+            entries[(e.member_id, e.role_id or "", e.kind, e.action)].append(e)
+
+    def from_activation(e: DirectoryAuditEvent) -> bool:
+        near = activations.get((e.member_id, e.role_id or "", e.action), [])
+        when = as_utc(e.occurred_at)
+        return e.initiator_type == "app" and any(abs(when - t) <= _ACTIVATION_NEAR for t in near)
+
+    def best(cluster: list[DirectoryAuditEvent]) -> DirectoryAuditEvent:
+        """The person's entry over a service's, then the earliest."""
+        return max(
+            cluster,
+            key=lambda x: (x.initiator_type == "user", -as_utc(x.occurred_at).timestamp()),
+        )
+
+    # One change per action: entries of the same kind within minutes are one.
+    picked: list[DirectoryAuditEvent] = []
+    for group in entries.values():
+        cluster: list[DirectoryAuditEvent] = []
+        for e in group:
+            if from_activation(e):
+                continue
+            if cluster and as_utc(e.occurred_at) - as_utc(cluster[0].occurred_at) > _SAME_ACTION:
+                picked.append(best(cluster))
+                cluster = []
+            cluster.append(e)
+        if cluster:
+            picked.append(best(cluster))
+    if not picked:
+        return 0
+
+    paths = {e.role_id: f"{ENTRA_PLACE}/roleDefinitions/{e.role_id}" for e in picked}
+    keys = {grant_fingerprint(ENTRA_PLACE, paths[e.role_id], e.member_id) for e in picked}
+    existing: dict[tuple[str, str], list[tuple[datetime, str]]] = defaultdict(list)
+    for chunk in _chunks(sorted(keys)):
+        for key, kind, at, source in session.execute(
+            select(
+                AccessChange.subject_key,
+                AccessChange.kind,
+                AccessChange.occurred_at,
+                AccessChange.source,
+            ).where(AccessChange.subject_key.in_(chunk))
+        ).all():
+            existing[(key, kind)].append((as_utc(at), source))
+    roles = {
+        rid.lower(): (name, perms)
+        for rid, name, perms in session.execute(
+            select(
+                RoleDefinition.role_definition_id,
+                RoleDefinition.role_name,
+                RoleDefinition.permissions,
+            ).where(RoleDefinition.role_definition_id.in_(set(paths)))
+        ).all()
+    }
+    raws = dict(
+        session.execute(
+            select(DirectoryAuditEvent.id, DirectoryAuditEvent.raw).where(
+                DirectoryAuditEvent.id.in_([e.id for e in picked])
+            )
+        ).all()
+    )
+
+    added = 0
+    for e in picked:
+        kind = _AUDIT_KIND[(e.kind, e.action)]
+        key = grant_fingerprint(ENTRA_PLACE, paths[e.role_id], e.member_id)
+        at = as_utc(e.occurred_at)
+        if any(
+            abs(when - at) <= _SAME_ACTION
+            or (source in ("daily_check", "created_on") and at <= when <= at + _SEEN_BY_A_CHECK)
+            for when, source in existing.get((key, kind), [])
+        ):
+            continue
+        name, perms = roles.get(e.role_id or "", (None, None))
+        session.add(
+            AccessChange(
+                kind=kind,
+                occurred_at=at,
+                source="entra_audit",
+                scope=ENTRA_PLACE,
+                scope_name="Entra ID",
+                scope_level="directory",
+                principal_id=e.member_id,
+                principal_name=e.member_name,
+                principal_type=e.member_type,
+                role_definition_id=paths[e.role_id],
+                role_name=name or _role_name_from(raws.get(e.id)),
+                level=classify(perms).level if perms else UNKNOWN.level,
+                actor_id=e.initiator_id,
+                actor_name=e.initiator_name,
+                actor_type=e.initiator_type,
+                subject_key=key,
+            )
+        )
+        existing[(key, kind)].append((at, "entra_audit"))
+        added += 1
+    session.commit()
+    return added
 
 
 def refine_from_events(session: Session, subscription_id: str, days: int = 14) -> int:

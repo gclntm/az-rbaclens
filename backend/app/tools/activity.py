@@ -131,9 +131,18 @@ def run_pull(pull_id: int) -> None:
                 # Not an Azure Activity Log: no usage findings, no operation
                 # names. Who changed the groups the checks saw change.
                 try:
-                    from app.core.changes import refine_from_directory_audits
+                    from app.core.changes import (
+                        record_entra_audit_changes,
+                        refine_from_directory_audits,
+                    )
 
                     refine_from_directory_audits(session)
+                    # Entra role changes no check saw: before the first check that read
+                    # Entra ID, or given and removed between two checks. Over every entry
+                    # on file, not only this window: after an upgrade (or a first
+                    # collection) the history fills in by itself. Adds only what is
+                    # missing, so running it each hour is safe.
+                    record_entra_audit_changes(session)
                 except Exception:
                     logger.exception("changes refinement after pull %s failed", pull_id)
                     session.rollback()
