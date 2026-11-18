@@ -156,6 +156,7 @@ export default function SideMenu() {
         { to: "/people", icon: "people", label: "People & apps" },
         { to: "/roles", icon: "roles", label: "Role guide" },
         { to: "/report", icon: "report", label: "Report" },
+        { to: "/help", icon: "help", label: "How it works" },
       ],
     },
   ];

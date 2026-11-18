@@ -1,20 +1,30 @@
 import {
   Activity,
   AlertTriangle,
+  Award01,
+  Bell01,
   BookOpen01,
   Calendar,
   CheckSquare,
   ClipboardCheck,
   ClockRewind,
+  Compass03,
   Contrast01,
   Database01,
   FileCheck02,
+  HelpCircle,
   Home02,
   LayersThree01,
+  Lightbulb02,
+  Lock01,
   Moon01,
+  Repeat04,
+  Rocket02,
   Settings01,
   Shield01,
   Sun,
+  Terminal,
+  UserCheck01,
   Users01,
 } from "@untitledui/icons";
 
@@ -41,7 +51,17 @@ export type NavIconName =
   | "history"
   | "sun"
   | "moon"
-  | "auto";
+  | "auto"
+  | "help"
+  | "rocket"
+  | "idea"
+  | "lock"
+  | "repeat"
+  | "self"
+  | "award"
+  | "compass"
+  | "bell"
+  | "terminal";
 
 type IconComponent = typeof Home02;
 
@@ -64,6 +84,16 @@ export const NAV_ICONS: Record<NavIconName, IconComponent> = {
   sun: Sun,
   moon: Moon01,
   auto: Contrast01,
+  help: HelpCircle,
+  rocket: Rocket02,
+  idea: Lightbulb02,
+  lock: Lock01,
+  repeat: Repeat04,
+  self: UserCheck01,
+  award: Award01,
+  compass: Compass03,
+  bell: Bell01,
+  terminal: Terminal,
 };
 
 export default function NavIcon({ name, size = 18 }: { name: NavIconName; size?: number }) {

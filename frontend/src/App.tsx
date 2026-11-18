@@ -16,6 +16,7 @@ const ChangesPage = lazy(() => import("@/pages/changes/ChangesPage"));
 const EventsPage = lazy(() => import("@/pages/events/EventsPage"));
 const FindingsPage = lazy(() => import("@/pages/findings/FindingsPage"));
 const GrantPage = lazy(() => import("@/pages/grants/GrantPage"));
+const HelpPage = lazy(() => import("@/pages/HelpPage"));
 const JobsPage = lazy(() => import("@/pages/jobs/JobsPage"));
 const IamAccessPage = lazy(() => import("@/pages/IamAccessPage"));
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
@@ -75,6 +76,7 @@ export default function App() {
                 <Route path="/reviews/:id" element={<ReviewPage />} />
                 <Route path="/todos" element={<TodosPage />} />
                 <Route path="/report" element={<ReportPage />} />
+                <Route path="/help" element={<HelpPage />} />
                 <Route path="/admin/data" element={<JobsPage />} />
                 <Route path="/jobs" element={<Navigate replace to="/admin/data" />} />
                 <Route path="/settings/*" element={<SettingsPage />} />
