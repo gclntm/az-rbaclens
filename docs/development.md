@@ -186,6 +186,7 @@ under the unversioned `## YYYY-MM-DD` heading at the top of
 ```bash
 make release-dry V=1.0.0         # shows the planned changes, touches nothing
 make release V=1.0.0             # asks, then: changelog heading, version bump, commit, main fast-forward, tag v1.0.0
+./scripts/release.sh 1.0.0 --no-push   # the same, kept local; prints the push command for later
 ```
 
 The version lives in `backend/app/version.py` (reported by

@@ -12,6 +12,7 @@
 #   ./scripts/release.sh 1.2.5            # interactive, confirms first
 #   ./scripts/release.sh 1.2.5 --yes      # non-interactive
 #   ./scripts/release.sh 1.2.5 --dry-run  # show the planned changes, touch nothing
+#   ./scripts/release.sh 1.2.5 --no-push  # release locally; print the push command for later
 #
 # Prerequisites:
 #   - on the dev branch (--branch <name> otherwise), working tree clean
@@ -42,6 +43,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 VERSION=""
 ASSUME_YES="false"
 DRY_RUN="false"
+NO_PUSH="false"
 SOURCE_BRANCH="dev"
 RELEASE_BRANCH="main"
 
@@ -67,6 +69,7 @@ while [[ $# -gt 0 ]]; do
         -h|--help) usage ;;
         --yes|-y) ASSUME_YES="true"; shift ;;
         --dry-run|-n) DRY_RUN="true"; shift ;;
+        --no-push) NO_PUSH="true"; shift ;;
         --branch) SOURCE_BRANCH="$2"; shift 2 ;;
         --release-branch) RELEASE_BRANCH="$2"; shift 2 ;;
         -*) die "Unknown flag: $1 (try --help)" ;;
@@ -185,7 +188,10 @@ git tag -a "v$VERSION" -m "Release $VERSION — see docs/CHANGELOG.md"
 ok "Fast-forwarded $RELEASE_BRANCH, tagged v$VERSION."
 git checkout -q "$SOURCE_BRANCH"
 PUSH="git push --atomic origin $SOURCE_BRANCH $RELEASE_BRANCH v$VERSION"
-if [[ "$HAS_REMOTE" == "true" ]]; then
+if [[ "$NO_PUSH" == "true" ]]; then
+    warn "--no-push: the release is local. To publish it:"
+    echo "    $PUSH"
+elif [[ "$HAS_REMOTE" == "true" ]]; then
     if $PUSH; then
         ok "Pushed $SOURCE_BRANCH, $RELEASE_BRANCH and v$VERSION."
     else
