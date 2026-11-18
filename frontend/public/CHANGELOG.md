@@ -6,6 +6,44 @@ carries a version). `make release V=X.Y.Z` turns that heading into
 `## [X.Y.Z] - YYYY-MM-DD`, bumps the version and tags `vX.Y.Z` — see
 [README-MAKE.md](README-MAKE.md) and `scripts/release.sh`.
 
+## [0.36.0] - 2026-11-18
+
+- **Owners of apps and groups.** An app's owner can add a secret to it and
+  act as it; a group's owner decides its members. Neither showed as a grant.
+  Each check now reads the owners of the apps and groups that hold access
+  (Directory Readers is enough):
+  - *Who can do what* says on the row how many own it ("2 owners can act as
+    it", "1 owner decides its members"), beside the app or group, not counted
+    in the levels;
+  - an app's or group's page lists its **Owners**, and anyone's page what
+    they **Own**; the grant page names the owners;
+  - **Needs a look** flags apps and groups whose grant can change who has
+    access or get keys and passwords when people, another app or a guest own
+    them and gain power by it (owners who already hold that power there, and
+    break-glass identities, are left out), with the commands that remove an
+    owner;
+  - the **Changes** page shows owners added and removed, with who did it from
+    the Entra ID audit log (which now keeps owner entries too), including an
+    owner added and removed between two checks.
+- **Idle threshold** (Settings › Advice, 90 days by default): one setting
+  for "not used" (no change recorded for that long, never longer than the
+  Activity Log is kept) and for idle Entra admins. Saving it works out what
+  needs a look again.
+- **Idle Entra admins.** Each check reads when the people holding powerful
+  access last signed in (with AuditLog.Read.All and Entra ID P1/P2). Someone
+  holding a powerful Entra role all the time who hasn't signed in for the
+  idle threshold needs a look (break-glass identities left out). The date
+  shows on their page, their grants and the People list, to admins and the
+  person only.
+- **App secrets.** Each check reads the secrets and certificates of the apps
+  holding a grant (dates only). An app's page lists them; an app holding a
+  powerful grant needs a look when one is valid more than two years, or
+  expired and still on file, with the commands to replace or delete it.
+- `POST /settings/database/cleanup-scans` is gone, as announced in 0.35.0:
+  Settings › Data kept (`/settings/data-kept`) replaces it.
+- Owner history in the audit log starts with this version: a collection of
+  the last 30 days started by hand reads the earlier entries once.
+
 ## [0.35.1] - 2026-11-18
 
 - **Settings › Data kept: "Apply now" no longer drops unsaved changes.**
