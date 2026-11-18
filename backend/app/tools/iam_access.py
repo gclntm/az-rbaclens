@@ -112,7 +112,8 @@ def run_scan(scan_id: int) -> None:
             scan.hierarchy = hierarchy
             upsert_role_definitions(session, role_definitions)
             persist_group_memberships(session, scan.id, group_memberships)
-            total_members = sum(len(members) for members in group_memberships.values())
+            # ``None``: Graph refused the group's members (they stay unknown).
+            total_members = sum(len(members or ()) for members in group_memberships.values())
             scan.progress_message = f"Done — {len(assignments)} role assignments"
             scan.heartbeat_at = datetime.now(UTC)
             # Single commit for results + terminal status: either the
