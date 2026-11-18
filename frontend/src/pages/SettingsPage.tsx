@@ -8,6 +8,7 @@ import AuthTab from "@/pages/settings/AuthTab";
 import ChangelogTab from "@/pages/settings/ChangelogTab";
 import CredentialsTab from "@/pages/settings/CredentialsTab";
 import DatabaseTab from "@/pages/settings/DatabaseTab";
+import DataKeptTab from "@/pages/settings/DataKeptTab";
 import NotificationsTab from "@/pages/settings/NotificationsTab";
 import ResponsibleTab from "@/pages/settings/ResponsibleTab";
 
@@ -18,6 +19,7 @@ const SECTIONS: [string, string][] = [
   ["credentials", "Credentials"],
   ["authentication", "Authentication"],
   ["audit", "Audit log"],
+  ["data-kept", "Data kept"],
   ["database", "Database"],
   ["changelog", "Changelog"],
 ];
@@ -44,6 +46,7 @@ export default function SettingsPage() {
         <Route path="credentials" element={<CredentialsTab />} />
         <Route path="authentication" element={<AuthTab />} />
         <Route path="audit" element={<AuditTab />} />
+        <Route path="data-kept" element={<DataKeptTab />} />
         <Route path="database" element={<DatabaseTab />} />
         <Route path="changelog" element={<ChangelogTab />} />
       </Routes>

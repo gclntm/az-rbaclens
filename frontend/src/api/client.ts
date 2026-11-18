@@ -299,6 +299,8 @@ export type AuditEvent = {
   path: string;
   status_code: number;
   client_ip?: string | null;
+  /** What the change changed, when the endpoint says so (Settings › Data kept: before / after). */
+  detail?: { before?: Record<string, unknown>; after?: Record<string, unknown> } | null;
 };
 
 export type TableStats = {
@@ -603,6 +605,24 @@ export type RetentionPolicy = {
   failed_snapshot_retention_days: number;
   audit_retention_days: number;
   change_retention_days?: number;
+};
+
+/** One line of Settings › Data kept: how much is stored now. */
+export type DataKeptStored = { count: number; oldest: string | null; bytes: number | null };
+
+/** Settings › Data kept: what applies (saved over the server's), and what is stored. */
+export type DataKept = {
+  values: Record<string, number>;
+  sources: Record<string, "saved" | "server">;
+  server: Record<string, number>;
+  bounds: Record<string, [number, number]>;
+  /** Values that also accept 0 below their bounds, meaning "never". */
+  never: string[];
+  stored: Record<string, DataKeptStored>;
+  folded_until: string | null;
+  bytes_per_check: number | null;
+  checks_per_day: number;
+  retention_interval_hours: number;
 };
 
 export type RetentionRun = {
@@ -1618,6 +1638,14 @@ export const api = {
     retentionPolicy: () => request<RetentionPolicy>("/settings/database/retention"),
     applyRetention: () =>
       request<RetentionRun>("/settings/database/retention", { method: "POST" }),
+    dataKept: () => request<DataKept>("/settings/data-kept"),
+    saveDataKept: (values: Record<string, number | null>) =>
+      request<DataKept>("/settings/data-kept", { method: "PUT", body: JSON.stringify({ values }) }),
+    previewDataKept: (values: Record<string, number | null>) =>
+      request<{ deletes: Record<string, number> }>("/settings/data-kept/preview", {
+        method: "POST",
+        body: JSON.stringify({ values }),
+      }),
     cleanupScans: (payload: CleanupRequest) =>
       request<MaintenanceResult>("/settings/database/cleanup-scans", {
         method: "POST",

@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 
 import Button from "@/components/Button";
-import { api, type DatabaseStats, type RetentionPolicy } from "@/api/client";
+import { Link } from "react-router-dom";
+
+import { api, type DatabaseStats } from "@/api/client";
 import { CAPTION, CARD, FORM_ROW, KV_LIST, MONO, cx } from "@/components/classes";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Toast";
 import { SectionCard } from "@/components/PageTemplate";
 
 import { TABLE } from "./AuditTab";
-import { SETTINGS_FIELD, SETTINGS_FORM, SETTINGS_LABEL } from "./CredentialsTab";
 
 function formatBytes(value: number | null | undefined): string {
   if (value == null) return "—";
@@ -34,9 +35,6 @@ export default function DatabaseTab() {
   const [loadingStats, setLoadingStats] = useState(false);
   const [running, setRunning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [cleanupDays, setCleanupDays] = useState(30);
-  const [cleanupOnlyFailed, setCleanupOnlyFailed] = useState(false);
-  const [policy, setPolicy] = useState<RetentionPolicy | null>(null);
 
   async function refresh() {
     setLoadingStats(true);
@@ -54,32 +52,8 @@ export default function DatabaseTab() {
 
   useEffect(() => {
     refresh();
-    api.database.retentionPolicy().then(setPolicy).catch(() => setPolicy(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the tab opens
   }, []);
-
-  async function applyRetention() {
-    const ok = await confirm({
-      title: "Apply the retention policy now?",
-      body: "Deleted events and checks cannot be restored.",
-      action: "Apply now",
-      danger: true,
-    });
-    if (!ok) return;
-    setRunning("retention");
-    try {
-      const r = await api.database.applyRetention();
-      showToast(
-        `Deleted ${r.events_deleted.toLocaleString()} events, ${r.snapshots_deleted + r.failed_snapshots_deleted} checks, ${r.audit_deleted} audit rows in ${r.duration_ms} ms.`,
-        "success",
-      );
-      await refresh();
-    } catch (e) {
-      showToast(`Retention failed: ${(e as Error).message}`, "error");
-    } finally {
-      setRunning(null);
-    }
-  }
 
   async function vacuumFull() {
     const ok = await confirm({
@@ -115,37 +89,6 @@ export default function DatabaseTab() {
       await refresh();
     } catch (e) {
       showToast(`${label} failed: ${(e as Error).message}`, "error");
-    } finally {
-      setRunning(null);
-    }
-  }
-
-  async function runCleanup(e: React.FormEvent) {
-    e.preventDefault();
-    if (cleanupDays < 1) return;
-    const ok = await confirm({
-      title: cleanupOnlyFailed
-        ? `Delete failed checks older than ${cleanupDays} day(s)?`
-        : `Delete ALL checks older than ${cleanupDays} day(s)?`,
-      body: "Deleted checks cannot be restored.",
-      action: "Delete",
-      danger: true,
-    });
-    if (!ok) return;
-    setRunning("cleanup");
-    setError(null);
-    try {
-      const result = await api.database.cleanupScans({
-        older_than_days: cleanupDays,
-        only_failed: cleanupOnlyFailed,
-      });
-      showToast(
-        `Deleted ${result.rows_affected ?? 0} check(s) in ${result.duration_ms} ms.`,
-        "success",
-      );
-      await refresh();
-    } catch (e) {
-      showToast(`Cleanup failed: ${(e as Error).message}`, "error");
     } finally {
       setRunning(null);
     }
@@ -294,93 +237,10 @@ export default function DatabaseTab() {
         </div>
       </SectionCard>
 
-      <SectionCard
-        icon="calendar"
-        title="Retention"
-      >
-        {policy ? (
-          <>
-            <ul className="my-[1em] list-disc pl-10 text-quaternary">
-              <li>
-                Activity Log events:{" "}
-                {policy.event_retention_days ? `${policy.event_retention_days} days` : "kept forever"}
-              </li>
-              <li>
-                Checks:{" "}
-                {policy.snapshot_keep_per_scope
-                  ? `newest ${policy.snapshot_keep_per_scope} per place, plus any check a place still shows`
-                  : "all kept"}
-                {policy.failed_snapshot_retention_days
-                  ? `; failed ones after ${policy.failed_snapshot_retention_days} days`
-                  : ""}
-              </li>
-              <li>
-                Audit log: {policy.audit_retention_days ? `${policy.audit_retention_days} days` : "kept forever"}
-              </li>
-              <li>
-                {policy.interval_hours
-                  ? `Applied automatically every ${policy.interval_hours} h.`
-                  : "Automatic runs are disabled (RETENTION_INTERVAL_HOURS=0)."}
-              </li>
-            </ul>
-            <p className={cx("my-[1em]", CAPTION, "text-quaternary")}>
-              Set with environment variables (<code>EVENT_RETENTION_DAYS</code>,{" "}
-              <code>SNAPSHOT_KEEP_PER_SCOPE</code>, <code>FAILED_SNAPSHOT_RETENTION_DAYS</code>,{" "}
-              <code>AUDIT_RETENTION_DAYS</code>); 0 keeps everything. Freed space is reused by new rows;
-              VACUUM FULL returns it to the disk.
-            </p>
-          </>
-        ) : (
-          <p className="my-[1em] text-quaternary">Loading policy…</p>
-        )}
-        <div className={FORM_ROW}>
-          <Button variant="primary" type="button" onClick={applyRetention} disabled={running !== null}>
-            {running === "retention" ? "Applying…" : "Apply now"}
-          </Button>
-        </div>
-      </SectionCard>
-
-      <SectionCard
-        icon="history"
-        title="Delete old checks"
-      >
-        <p className="my-[1em] text-quaternary">
-          Deletes finished checks older than this, with the grants they found. Checks still
-          running, and the check each place shows now, are kept.
-        </p>
-        <form onSubmit={runCleanup} className={SETTINGS_FORM}>
-          <label className={SETTINGS_FIELD}>
-            <span className={SETTINGS_LABEL}>Older than (days)</span>
-            <input
-              className="font-normal tracking-normal"
-              type="number"
-              min={1}
-              value={cleanupDays}
-              onChange={(e) => setCleanupDays(Number(e.target.value) || 0)}
-            />
-          </label>
-          <label className={SETTINGS_FIELD}>
-            <span className={SETTINGS_LABEL}>
-              <input
-                className="text-[13.3333px] leading-[normal] font-normal tracking-normal [color:fieldtext] mt-[3px] mr-[3px] mb-[3px] ml-1"
-                type="checkbox"
-                checked={cleanupOnlyFailed}
-                onChange={(e) => setCleanupOnlyFailed(e.target.checked)}
-              />{" "}
-              Only delete failed checks
-            </span>
-          </label>
-          <div className={FORM_ROW}>
-            <Button
-              variant="primary"
-              type="submit"
-              disabled={running !== null || cleanupDays < 1}
-            >
-              {running === "cleanup" ? "Deleting…" : "Run cleanup"}
-            </Button>
-          </div>
-        </form>
-      </SectionCard>
+      <p className={cx(CAPTION, "my-2")}>
+        How long each kind of data is kept, and deleting old checks:{" "}
+        <Link to="/settings/data-kept">Data kept</Link>.
+      </p>
     </>
   );
 }

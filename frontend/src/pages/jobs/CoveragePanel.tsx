@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 import { linkButtonClass } from "@/components/chips";
 import { CAPTION, EMPTY_STATE, cx } from "@/components/classes";
@@ -92,7 +93,14 @@ export default function CoveragePanel({
           </>
         )}
         Azure never records reads or data access.
-        {retentionDays !== null && ` RBAC Lens keeps what it collects for ${retentionDays} days.`}
+        {retentionDays !== null && (
+          <>
+            {retentionDays ? ` RBAC Lens keeps what it collects for ${retentionDays} days` : " RBAC Lens keeps all it collects"}
+            {" ("}
+            <Link to="/settings/data-kept">Data kept</Link>
+            {")."}
+          </>
+        )}
       </p>
       {coverage && entra && (
         <p className={cx("my-[1em] flex flex-wrap items-center gap-x-3 gap-y-1", CAPTION_MUTED)}>

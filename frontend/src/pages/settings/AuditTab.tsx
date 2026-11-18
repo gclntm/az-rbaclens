@@ -17,6 +17,15 @@ export const TABLE =
 
 const PAGE_SIZE = 100;
 
+/** "snapshot_keep_days: 0 → 365 · …" for a change that says what it changed. */
+export function detailText(detail: AuditEvent["detail"]): string {
+  const after = detail?.after ?? {};
+  const before = detail?.before ?? {};
+  return Object.keys(after)
+    .map((k) => `${k}: ${String(before[k] ?? "—")} → ${String(after[k])}`)
+    .join(" · ");
+}
+
 export default function AuditTab() {
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -106,8 +115,9 @@ export default function AuditTab() {
                 <td>
                   <code>{e.method}</code>
                 </td>
-                <td className={cx(MONO, "max-w-[360px] overflow-hidden text-ellipsis whitespace-nowrap")} title={e.path}>
-                  {e.path}
+                <td className={cx(MONO, "max-w-[360px]")} title={e.path}>
+                  <span className="block overflow-hidden text-ellipsis whitespace-nowrap">{e.path}</span>
+                  {detailText(e.detail) && <span className="block whitespace-normal text-tertiary">{detailText(e.detail)}</span>}
                 </td>
                 <td>
                   <span
