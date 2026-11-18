@@ -6,6 +6,19 @@ carries a version). `make release V=X.Y.Z` turns that heading into
 `## [X.Y.Z] - YYYY-MM-DD`, bumps the version and tags `vX.Y.Z` — see
 [README-MAKE.md](README-MAKE.md) and `scripts/release.sh`.
 
+## 2026-11-18
+
+- **Owners and secrets in the monthly review.** What the owner and secret
+  findings flag is now reviewed like a grant, each once, in the round of the
+  strongest grant it reaches: an owner of an app or group (keep, remove, or
+  ask the owner, who never reviews their own ownership) and an app's secret
+  (keep, delete, replace, or ask). Removing one becomes a to-do with its
+  command, closed by the next check once the owner or secret is gone. The
+  report counts them under ISO 27001 5.18.
+- **Undoing a Keep in a review reopens the findings it marked reviewed**, as
+  does changing it to another decision. A decision someone made on the
+  finding by hand since is kept.
+
 ## [0.36.0] - 2026-11-18
 
 - **Owners of apps and groups.** An app's owner can add a secret to it and

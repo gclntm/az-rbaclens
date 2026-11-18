@@ -308,10 +308,18 @@ identity federation).
   Who is responsible) reviews the grants given on their places: keep,
   remove, change, or ask the person. The playbook suggests a decision on each
   grant; the rest can be accepted at once. Places without
-  anyone go to the admins' round.
+  anyone go to the admins' round. The review also takes what the owner and
+  secret findings flag, each once: an **owner** of an app or group (keep,
+  remove, or ask the owner, who is never their own reviewer) and an app's
+  **secret** (keep, delete, replace, or ask), in the round of the strongest
+  grant they reach. An expired secret is suggested for removal, a
+  long-lived one for replacement; owners get no suggestion. Keeping a grant
+  (or every owner or secret a finding lists) marks its findings reviewed;
+  undoing the keep reopens them, unless someone decided on the finding by
+  hand since.
 - **To do** (`/todos`): each remove or change decision of a finished review,
   with the commands to run. RBAC Lens never changes Azure; the next daily
-  check closes the to-do when the grant is gone.
+  check closes the to-do when the grant, the owner or the secret is gone.
 - **Changes** (`/changes`): who got or lost access, when and who did it.
   Each daily check records what changed since the previous one, and the
   history is kept 365 days (`CHANGE_RETENTION_DAYS`): nothing is missed

@@ -151,7 +151,9 @@ findings             id, scan_id → scans (CASCADE), role_assignment_id →
                      evidence JSON, computed_at
                      UNIQUE (scan_id, fingerprint); IX (scan_id, severity); IX (fingerprint)
 review_decisions     PK fingerprint, decision (reviewed|accepted_risk|snoozed|resolved),
-                     note, snoozed_until, actor, actor_name, decided_at
+                     note, snoozed_until, actor, actor_name, decided_at,
+                     review_item_id → review_items (SET NULL; 0045: the review "keep"
+                     that marked it, cleared by a decision made by hand)
 ```
 
 `findings` rows are replaced wholesale by `compute_scan_findings` (end of a
@@ -300,15 +302,17 @@ review_rounds        id, scope_id → scopes (CASCADE; NULL = the admins' round)
                      reviewer_name, opened_at, due_at, finished_at, finished_by_name
                      UNIQUE (scope_id, period); UNIQUE (period) WHERE scope_id IS NULL
 review_items         id, round_id → review_rounds (CASCADE), grant_fingerprint (IX),
+                     kind (grant | owner | secret, 0045), subject_key, detail JSON,
                      scope, scope_name, scope_level, principal_*, role_definition_id,
                      role_name, level, azure_id, moved_from_scope,
                      decision (keep | remove | change | ask | NULL),
                      suggested, suggested_rule, suggested_title (0030), note,
                      decided_by, decided_by_name, decided_at, carried_from_round_id,
                      ask_remind_at, gone_at, added_at
-                     UNIQUE (round_id, grant_fingerprint)
+                     UNIQUE (round_id, subject_key) (0045; was grant_fingerprint)
 todos                id, round_id → review_rounds (CASCADE), item_id → review_items
-                     (CASCADE, unique), grant_fingerprint, action (remove | change),
+                     (CASCADE, unique), grant_fingerprint, kind, subject_key, detail JSON
+                     (0045), action (remove | change),
                      scope, scope_name, principal_*, role_name, note, advice_rule,
                      how JSON, commands JSON, reviewer_id, reviewer_name,
                      decided_by_name, created_at, due_at,
@@ -323,6 +327,17 @@ notifications        id, kind (ask | review_opened | review_due | reminder |
                      sent_at, channel, error
 ai_texts             hash PK, model, prompt_version, text, created_at
 ```
+
+An owner item is one owner of an app or group an owner finding lists
+(`subject_key` `owner:<object>:<owner>`; `principal_*` is the owner); a
+secret item one secret or certificate a secret finding lists
+(`secret:<object>:<via>:<key id>`; `principal_*` is the app). Their grant
+columns hold the strongest grant the app or group holds, which routes them
+to that grant's round (`app/core/review_subjects.py`). `detail` keeps the
+app or group, the ways it is owned, or the secret's kind and dates. A to-do
+for one is done when the next check no longer sees the owner link or the
+secret.
+
 
 - **Responsible people** (`app/core/responsible.py`): set by an admin, they
   apply to everything inside a place unless someone is set lower down. Not
@@ -465,6 +480,7 @@ always starts on the current schema.
 | 0042  | `audit_events.detail`: what an audited change changed, when the endpoint says so |
 | 0043  | `principal_owners`, `scan_owner_resolutions`; change kinds `owner_added` / `owner_removed` |
 | 0044  | `principal_sign_ins`, `app_credentials` |
+| 0045  | `kind` / `subject_key` / `detail` on `review_items` and `todos` (owners and secrets reviewed); `review_decisions.review_item_id` (backfilled from "Kept in the monthly review" marks) |
 
 ### Migration conventions
 

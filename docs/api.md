@@ -277,11 +277,11 @@ finishes.
 | Call | What it does |
 |---|---|
 | `GET /reviews?mine=&period=YYYY-MM` | Rounds, newest month first, with `progress`, `blocking`, `can_decide`. |
-| `GET /reviews/{id}` | The round and its items, with the advice's `suggested` decision, `moved_from_scope`, `carried`, `gone_at`, `remove_command`. |
-| `PUT /reviews/{id}/items/{item_id}` `{"decision": "keep"\|"remove"\|"change"\|"ask"\|null, "note": …}` | Decide or clear. `ask` sets a reminder 7 days on; `keep` marks the grant's open findings reviewed. 403 for someone else's round, 409 once finished. |
+| `GET /reviews/{id}` | The round and its items, with the advice's `suggested` decision, `moved_from_scope`, `carried`, `gone_at`, `remove_command`. `kind`: `grant`, `owner` (one owner of an app or group an owner finding lists; `principal_*` is the owner, `detail` the app or group and the ways it is owned) or `secret` (a secret or certificate a secret finding lists; `detail` its kind, where and dates); `grant_id` is then the strongest grant it reaches. |
+| `PUT /reviews/{id}/items/{item_id}` `{"decision": "keep"\|"remove"\|"change"\|"ask"\|null, "note": …}` | Decide or clear. `ask` sets a reminder 7 days on (an owner is asked directly); `keep` marks the grant's open findings reviewed (for an owner or secret: the findings whose listed owners or secrets are all kept), and undoing or changing that `keep` reopens them, unless someone decided on the finding by hand since. An owner can't take `change` (400). 403 for someone else's round, 409 once finished. |
 | `POST /reviews/{id}/accept-advice` | Confirm the suggested decision on every item still to decide; counts per decision. |
 | `POST /reviews/{id}/finish` | 409 while an item whose grant still exists is undecided or asked. `remove` and `change` items become to-dos. |
-| `GET /reviews/{id}/export` | CSV of the decisions, with the Azure CLI command for `remove` (RBAC Lens never runs it). |
+| `GET /reviews/{id}/export` | CSV of the decisions, with the Azure CLI command for `remove` (RBAC Lens never runs it), and `item` / `about` for owners and secrets. |
 | `POST /reviews/open` (admin) | Open this month's rounds and update their items now (also runs after every check). |
 
 ## To do
