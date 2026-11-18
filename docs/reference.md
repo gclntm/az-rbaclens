@@ -126,7 +126,7 @@ UI labels in quotes are what the side menu and page headers say.
 | Old snapshot URLs | `/iam-access`, `/iam-access/:id` (redirect to Data & schedules or the place page) | `/api/iam-access/scans*` | iam-access.md |
 | "Activity Log": events (browse, export) | `/events` (linked from Data & schedules) | `/api/activity/events*` | iam-access.md |
 | "Data & schedules": schedules (daily check, hourly Activity Log collection, hourly Entra ID audit log collection once readable), run now, recent runs, Activity Log coverage with the Entra ID audit log's state and **Check now** | `/admin/data` (`/jobs` redirects) | `/api/jobs`, `/api/schedules*`, `/api/activity/coverage`, `/api/activity/entra-audit/check`, `/api/activity/pulls`, `/api/iam-access/scans` | api.md |
-| "Settings": Who is responsible · Advice · Notifications · Credentials · Authentication · Audit log · Database · Changelog | `/settings/*` | `/api/settings/*`, `/api/auth/*`, `/api/audit/*`, `/api/notifications*` | [auth.md](auth.md), deployment.md |
+| "Settings": Who is responsible · Advice · Notifications · Credentials · Authentication · Audit log · Data kept · Database · Changelog | `/settings/*` | `/api/settings/*`, `/api/auth/*`, `/api/audit/*`, `/api/notifications*` | [auth.md](auth.md), deployment.md |
 | Registry rebuild (admin, no UI) | — | `POST /api/settings/registry/rebuild` | api.md |
 
 Old addresses `/scopes/*` and `/principals/*` redirect to `/places/*` and
@@ -237,9 +237,10 @@ set a different value, that is noted.
 | `RECOVER_JOBS_AT_START` | no | `true` | close jobs left in flight and run their schedules again; `false` with several replicas |
 | `DEFAULT_SCHEDULES` / `DEFAULT_CHECK_HOUR` | no | `true` / `6` | daily check of the whole tenant + hourly Activity Log pulls, created once |
 | `SECOND_PASS_HOURS` / `SECOND_PASS_HOUR` | no | `48` / `3` | nightly re-read of the Activity Log for late events; `0` turns it off |
-| `EVENT_RETENTION_DAYS` / `SNAPSHOT_KEEP_PER_SCOPE` / `FAILED_SNAPSHOT_RETENTION_DAYS` / `AUDIT_RETENTION_DAYS` | no | `120` / `6` / `7` / `365` | retention policy; `0` keeps everything |
+| `EVENT_RETENTION_DAYS` / `SNAPSHOT_KEEP_PER_SCOPE` / `FAILED_SNAPSHOT_RETENTION_DAYS` / `AUDIT_RETENTION_DAYS` | no | `120` / `6` / `7` / `365` | retention defaults (Settings → Data kept overrides them); `0` keeps everything |
+| `ENTRA_AUDIT_RETENTION_DAYS` / `COMPACT_AFTER_DAYS` / `SNAPSHOT_KEEP_DAYS` | no | as events / `4` / `0` | Entra ID audit log; folding app activity (`0` never); checks also kept by age (`0` off) |
 | `CHANGE_RETENTION_DAYS` / `PULL_RECORD_RETENTION_DAYS` | no | `365` / `30` | changes feed; finished pull records |
-| `RETENTION_INTERVAL_HOURS` / `RETENTION_FIRST_RUN_MINUTES` | no | `24` / `5` | retention loop; interval `0` disables it (Settings → Database can still apply it) |
+| `RETENTION_INTERVAL_HOURS` / `RETENTION_FIRST_RUN_MINUTES` | no | `24` / `5` | retention loop; interval `0` disables it (Settings → Data kept can still apply it) |
 | `NOTIFICATION_CHANNEL` | no | empty (stacks: `smtp`) | empty = outbox only; `smtp` (Mailpit) or `email` (Graph) |
 | `SMTP_HOST` / `SMTP_PORT` | for `smtp` | empty / `25` (stacks: `mailpit` / `1025`) | |
 | `NOTIFICATION_SENDER` / `NOTIFICATION_ADMIN_EMAIL` | for `email` | empty | sender mailbox needs Graph `Mail.Send`; where admins' messages go |

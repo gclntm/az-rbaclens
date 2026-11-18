@@ -358,22 +358,28 @@ audit_events         id, occurred_at (IX), actor (IX), actor_name, method, path,
 
 `app/core/retention.py` runs `RETENTION_FIRST_RUN_MINUTES` (5) after startup,
 then every `RETENTION_INTERVAL_HOURS` (24), and on **Apply now** under
-Settings › Database. `0` keeps everything. These are backend settings
-(`app/core/config.py`); see [deployment.md](deployment.md#backend-settings)
-for how to change them. What deleting a check, a collection run or a
-schedule keeps, in plain words: [iam-access.md](iam-access.md#what-deleting-keeps).
+Settings › Data kept. `0` days keeps everything. The values come from
+`app/core/retention_settings.py`: what an admin saved on Settings › Data
+kept (`app_settings` key `retention`), else the backend setting
+(`app/core/config.py`, see [deployment.md](deployment.md#backend-settings)).
+What deleting a check, a collection run or a schedule keeps, in plain
+words: [iam-access.md](iam-access.md#what-deleting-keeps).
 
 | Setting | Default | Deletes |
 |---|---|---|
-| `EVENT_RETENTION_DAYS` | 120 | Activity Log events (machine activity is folded into daily rows first), and the Entra ID audit log's membership entries |
-| `SNAPSHOT_KEEP_PER_SCOPE` | 6 | completed checks beyond the newest N per root scope |
+| `EVENT_RETENTION_DAYS` | 120 | Activity Log events |
+| `ENTRA_AUDIT_RETENTION_DAYS` | as `EVENT_RETENTION_DAYS` | Entra ID audit log entries |
+| `COMPACT_AFTER_DAYS` | 4 | folds routine app activity into daily rows after N days; `0` never (otherwise at least 3: collections re-read the last two days) |
+| `SNAPSHOT_KEEP_PER_SCOPE` | 6 | completed checks beyond the newest N per root scope … |
+| `SNAPSHOT_KEEP_DAYS` | 0 | … and older than N days (`0`: no time rule); whichever keeps more |
 | `FAILED_SNAPSHOT_RETENTION_DAYS` | 7 | failed checks |
 | `AUDIT_RETENTION_DAYS` | 365 | audit rows |
 | `CHANGE_RETENTION_DAYS` | 365 | changes feed entries |
 | `PULL_RECORD_RETENTION_DAYS` | 30 | records of finished pulls |
 
 A check any `scopes.latest_scan_id` points to is never deleted, nor one in
-flight; *Delete old checks* (Settings › Database) follows the same rules. Deletes run in batches.
+flight. The preview on Settings › Data kept (`core/retention.py:preview`)
+runs the same selections without deleting. Deletes run in batches.
 Freed space is reused by Postgres; `VACUUM FULL` returns it to the disk.
 
 ## Migrations
@@ -426,6 +432,7 @@ always starts on the current schema.
 | 0039  | index on `access_changes.activity_event_id` (deleting events no longer scans the feed) |
 | 0040  | `directory_audit_events`; `access_changes.actor_type` / `direct_group_name`; source `entra_audit` |
 | 0041  | `directory_audit_events.kind` / `role_id`; `group_id` optional (Entra role entries) |
+| 0042  | `audit_events.detail`: what an audited change changed, when the endpoint says so |
 
 ### Migration conventions
 

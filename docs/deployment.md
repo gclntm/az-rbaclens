@@ -84,7 +84,7 @@ it in `.env.prod` alone does nothing.
 | `STUCK_SCAN_TIMEOUT_SECONDS` | `3600` | A job with no sign of life (`heartbeat_at`) for this long is marked failed. |
 | `STUCK_SCAN_SWEEP_SECONDS` | `60` | How often the sweeper runs; `0` disables it. |
 | `RETENTION_INTERVAL_HOURS` / `RETENTION_FIRST_RUN_MINUTES` | `24` / `5` | The retention run ([data-model.md](data-model.md#retention)); `0` hours disables the loop. |
-| `EVENT_RETENTION_DAYS`, `SNAPSHOT_KEEP_PER_SCOPE`, `FAILED_SNAPSHOT_RETENTION_DAYS`, `AUDIT_RETENTION_DAYS`, `CHANGE_RETENTION_DAYS`, `PULL_RECORD_RETENTION_DAYS` | `120`, `6`, `7`, `365`, `365`, `30` | What retention deletes; `0` keeps everything. |
+| `EVENT_RETENTION_DAYS`, `ENTRA_AUDIT_RETENTION_DAYS`, `COMPACT_AFTER_DAYS`, `SNAPSHOT_KEEP_PER_SCOPE`, `SNAPSHOT_KEEP_DAYS`, `FAILED_SNAPSHOT_RETENTION_DAYS`, `AUDIT_RETENTION_DAYS`, `CHANGE_RETENTION_DAYS`, `PULL_RECORD_RETENTION_DAYS` | `120`, as events, `4`, `6`, `0`, `7`, `365`, `365`, `30` | What retention deletes ([data-model.md](data-model.md#retention)); `0` days keeps everything. These are defaults: values saved on Settings › Data kept override them. |
 | `NOTIFICATION_MAX_AGE_DAYS` | `7` | Waiting messages older than this are closed, not sent late. |
 | `ANTHROPIC_API_KEY` | empty | AI wording key used when none is saved in Settings. |
 

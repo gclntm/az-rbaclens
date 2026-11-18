@@ -6,6 +6,23 @@ carries a version). `make release V=X.Y.Z` turns that heading into
 `## [X.Y.Z] - YYYY-MM-DD`, bumps the version and tags `vX.Y.Z` — see
 [README-MAKE.md](README-MAKE.md) and `scripts/release.sh`.
 
+## 2026-11-18
+
+- **Settings › Data kept**: how long each kind of data is kept, on one page,
+  with how much is stored now (count, oldest, size) and a preview of what
+  retention would delete before you save. Values saved there override the
+  server's environment variables, which stay the defaults; each change is
+  in the audit log with the values before and after.
+- **Checks can be kept by time**, for an audit: "every check for 365 days",
+  and at least the last N per place, whichever keeps more (new server
+  default `SNAPSHOT_KEEP_DAYS`, 0).
+- **The Entra ID audit log has its own retention** (`ENTRA_AUDIT_RETENTION_DAYS`,
+  default as the Activity Log), and **folding routine app activity into
+  daily counts is a setting** (`COMPACT_AFTER_DAYS`, default 4; or never).
+- The Retention card and *Delete old checks* leave Settings › Database,
+  which keeps the maintenance tools; `POST /settings/database/cleanup-scans`
+  is deprecated.
+
 ## [0.34.1] - 2026-11-18
 
 - **Entra role changes come straight from the Entra ID audit log**, not

@@ -365,14 +365,21 @@ what was added and removed, with the count kept.
 | **Credentials** | Save the Azure identity when the env file has none; the secret is encrypted with `ENCRYPTION_KEY`. Shows which source is active. |
 | **Authentication** | Entra ID sign-in ([auth.md](auth.md)). |
 | **Audit log** | Every change made through the API. |
-| **Database** | Table and index sizes, VACUUM / ANALYZE / REINDEX, retention, and *Delete old checks*. |
+| **Data kept** | How long each kind of data is kept, how much is stored now, a preview of what retention would delete, and **Apply now**. See [What deleting keeps](#what-deleting-keeps). |
+| **Database** | Table and index sizes, VACUUM / ANALYZE / REINDEX. |
 | **Changelog** | What changed in each release. |
 
 ## What deleting keeps
 
+How long each kind of data is kept is set on **Settings › Data kept**: one
+line per kind, with how much is stored now, and a preview of what
+retention would delete before you save. Values saved there override the
+server's environment variables, which stay the defaults. Each change is in
+the audit log, with the values before and after.
+
 A **check** is a photo of who has which access on one day. Deleting one
 (a run in **Recent checks and collections** on Data & schedules, or
-*Delete old checks* on Settings › Database) deletes that photo: the
+retention) deletes that photo: the
 grants, PIM eligibilities and group members it found, and its findings.
 With it go its CSV export, the comparisons with it ("What changed since
 #N"), and its line in a place's Changes tab. The check a place shows now
@@ -382,15 +389,21 @@ Everything else is stored on its own and stays:
 
 | What | Kept for |
 |---|---|
-| Activity Log events (who did what in Azure) | 120 days (`EVENT_RETENTION_DAYS`) |
-| Entra ID audit log entries (group members, Entra roles, PIM activations) | 120 days, like the Activity Log |
-| The Changes page (who got or lost access) | 365 days (`CHANGE_RETENTION_DAYS`) |
+| Activity Log events (who did what in Azure) | 120 days by default |
+| Entra ID audit log entries (group members, Entra roles, PIM activations) | 120 days by default |
+| The Changes page (who got or lost access) | 365 days by default |
 | Review decisions, to-dos, saved reports, the audit log | not deleted with checks |
 
-RBAC Lens deletes old checks by itself: it keeps the newest 6 completed
-checks per place (`SNAPSHOT_KEEP_PER_SCOPE`) and failed ones 7 days. With
-one daily check of the tenant root, checks older than about 6 days are
-already gone.
+By default RBAC Lens keeps the newest 6 completed checks per place, and
+failed ones 7 days: with one daily check of the tenant root, checks older
+than about 6 days are gone. For an audit, set checks to "every check for
+365 days" on Data kept: a check is kept while it is younger than that, or
+among the last N of its place, whichever keeps more.
+
+Routine app activity is folded into one line per day after 4 days by
+default: the detail of each action is gone, the count stays. People's
+actions, access changes and failures are always kept in full. "Never fold"
+keeps every line (and a much larger Activity Log).
 
 A **collection** run (of the Activity Log or the Entra ID audit log) is
 only a record: which window it read, when, and whether it worked.

@@ -367,9 +367,12 @@ operation, resource and outcome on one day, from `first_occurred_at` to
 | `DELETE /settings/credentials` | Drops the saved row. |
 | `GET /settings/database/stats` | Database, table and index sizes (null on SQLite). |
 | `POST /settings/database/vacuum[?full=true]` · `/analyze` · `/reindex` | Maintenance. `full=true` rewrites tables and locks each one meanwhile; `reindex` runs `REINDEX TABLE CONCURRENTLY` per table. |
-| `GET` / `POST /settings/database/retention` | The policy from settings; `POST` applies it now and returns what was deleted. |
-| `POST /settings/database/cleanup-scans` `{older_than_days, only_failed}` | Delete finished checks older than N days, never one in flight or still owning a place. |
-| `GET /audit/events?limit=100&offset=0` | The audit log, newest first (`limit` ≤ 500). |
+| `GET /settings/data-kept` | What is kept: `values` that apply (saved over the server's), `sources` (`saved` \| `server`), `server`, `bounds`, `never` (values where 0 means never), `stored` per kind (`count`, `oldest`, `bytes` on Postgres), `folded_until`, `bytes_per_check`, `checks_per_day`. |
+| `PUT /settings/data-kept` `{values: {name: days \| null}}` | Save values (null clears one: back to the server's). 422 on a bad value. The audit entry carries the values before and after in `detail`. |
+| `POST /settings/data-kept/preview` `{values}` | What a retention run with these values would delete, per kind, and the days it would fold; nothing is saved or deleted. |
+| `GET` / `POST /settings/database/retention` | The values that apply now; `POST` applies them now and returns what was deleted. |
+| `POST /settings/database/cleanup-scans` `{older_than_days, only_failed}` | Deprecated (Settings › Data kept replaces it; removed in a later release). Delete finished checks older than N days, never one in flight or still owning a place. |
+| `GET /audit/events?limit=100&offset=0` | The audit log, newest first (`limit` ≤ 500). `detail`, when set, says what the change changed (never the request body). |
 | `GET /scope-browser/subscriptions?mgmt_group=` | Subscriptions read live from Azure (cached in the process), optionally under one management group. 502 when Azure fails. |
 | `POST /scope-browser/refresh` | Clear that cache (204). |
 
