@@ -5,4 +5,4 @@ backend/pyproject.toml, frontend/package.json and docs/CHANGELOG.md.
 ``GET /api/health`` reports it, so operators can see what is running.
 """
 
-__version__ = "0.33.0"
+__version__ = "0.34.0"
