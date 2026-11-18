@@ -26,7 +26,9 @@ make                  # every command; always `make <command> <test|prod>`
 
 Azure credentials: put `ARM_CLIENT_ID` / `ARM_CLIENT_SECRET` / `ARM_TENANT_ID`
 in `.env.test` and run `make restart test`, or save them on the Settings page
-after the first start.
+after the first start. No identity yet? [Setting up the service
+identity](docs/deployment.md#setting-up-the-service-identity) creates a
+read-only one, with the Azure CLI or in the portal.
 
 ### Just run it (published images)
 
@@ -41,7 +43,9 @@ printf 'POSTGRES_PASSWORD=%s\nENCRYPTION_KEY=%s\n' \
 docker compose up -d          # then open http://localhost:8080
 ```
 
-Then save the Azure credentials on Settings → Credentials. Options,
+Then save the Azure credentials on Settings → Credentials (to create the
+identity: [Setting up the service
+identity](docs/deployment.md#setting-up-the-service-identity)). Options,
 upgrades and backups are in the header of [`compose.yaml`](compose.yaml).
 
 Backend is at `http://localhost:8000` (OpenAPI / Swagger at
@@ -63,8 +67,11 @@ it, and schedules keep it current:
 
 1. **Give it an identity.** A service principal with Reader on the places
    to check, Management Group Reader on the Tenant Root Group and the Entra
-   role Directory Readers. Save it on **Settings → Credentials**, or put
-   `ARM_*` in the env file.
+   role Directory Readers; optionally the Microsoft Graph *Application*
+   permission AuditLog.Read.All, to see who changes group members. Save it
+   on **Settings → Credentials**, or put `ARM_*` in the env file. Step by
+   step, with the Azure CLI or in the portal: [Setting up the service
+   identity](docs/deployment.md#setting-up-the-service-identity).
 2. **Run the first check.** On **Data & schedules**, choose **Add a
    schedule, or run once**, pick the tenant root (or a management group or
    subscription) and run it once. The page shows its progress.

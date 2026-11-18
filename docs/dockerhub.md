@@ -42,7 +42,9 @@ Then save the Azure credentials on **Settings → Credentials**, or add
 `ARM_CLIENT_ID`, `ARM_CLIENT_SECRET` and `ARM_TENANT_ID` to `.env` and run
 `docker compose up -d` again. The service principal needs **Reader** on
 the scopes to check, **Management Group Reader** on the Tenant Root Group,
-and the Entra role **Directory Readers**.
+and the Entra role **Directory Readers**. How to create it, with the Azure
+CLI or in the portal:
+[Setting up the service identity](https://github.com/gclntm/az-rbaclens/blob/main/docs/deployment.md#setting-up-the-service-identity).
 
 Keep `.env`: `ENCRYPTION_KEY` decrypts the credentials saved in the app.
 

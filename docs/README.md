@@ -15,7 +15,8 @@ vars is [reference.md](reference.md); the UI rules are in
 - [CHANGELOG.md](CHANGELOG.md) — release notes.
 - [dockerhub.md](dockerhub.md) — the overview shown on the Docker Hub image pages (published when it changes on `main` and at each release).
 - [Deployment](deployment.md) — production stack, env vars, secrets,
-  encryption-key generation, email, backups.
+  encryption-key generation, email, backups, and setting up the read-only
+  service identity.
 
 ## Reference
 

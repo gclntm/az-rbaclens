@@ -11,7 +11,8 @@ The stacks sign in as a read-only service principal (see
 [deployment.md](deployment.md#azure-identity-least-privilege)): **Reader**
 on the management groups to check, **Management Group Reader** on the
 Tenant Root Group, and the Entra role **Directory Readers** for names and
-group members in Microsoft Graph.
+group members in Microsoft Graph. How to set it up:
+[deployment.md](deployment.md#setting-up-the-service-identity).
 
 Without Graph read access, identities show as GUIDs and groups get a
 *Group members unknown* finding: a group's grant can't be judged

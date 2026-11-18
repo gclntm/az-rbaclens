@@ -473,9 +473,97 @@ write (a deployment pipeline's, for example).
   `make restart prod`.
 - **Another identity:** change the three `ARM_*` values in the env file,
   then `make restart <env>`; `make whoami <env>` shows which one is set.
-- **Who can create it:** anyone who can create an app registration;
-  assigning its roles needs Owner (or User Access Administrator) on the
-  management groups and Privileged Role Administrator in Entra.
+
+### Setting up the service identity
+
+What `sp-rbaclens-reader` needs, in one table. These are three kinds of
+permission, each set in a different place:
+
+| Permission | Kind | Where it is set | Needed for |
+|---|---|---|---|
+| **Reader** | Azure role | On the management group to review, or the Tenant Root Group | Required: role assignments, PIM, the Activity Log |
+| **Management Group Reader** | Azure role | On the Tenant Root Group | Required: the tree of management groups above |
+| **Directory Readers** | Entra role | Entra ID → Roles and administrators | Recommended: names, and the members of groups |
+| **AuditLog.Read.All** | Microsoft Graph *Application* permission, admin consent | The app registration → API permissions | Optional: who added or removed a group member |
+| **Mail.Send** | Microsoft Graph *Application* permission, admin consent | The app registration → API permissions | Optional: real email ([below](#real-email-through-microsoft-graph)) |
+
+**Application, not Delegated.** A Microsoft Graph permission comes in two
+types. *Delegated* acts for a person who is signed in; *Application* acts as
+the app itself. RBAC Lens signs in as the app, with nobody signed in, so only
+**Application** permissions reach it. A Delegated one shows "Granted" on the
+API permissions page and still does nothing: the token's `roles` stay
+empty, and Graph answers `Authentication_MSGraphPermissionMissing`. Check
+the **Type** column says *Application*.
+
+**Who can do it:** creating the app registration needs Application
+Developer (or any user, when the tenant allows it). Giving it the Azure
+roles needs Owner or User Access Administrator on the Tenant Root Group;
+the Entra role and the admin consent need Privileged Role Administrator
+(or Global Administrator).
+
+**With the Azure CLI**, signed in (`az login`) as someone with those rights.
+The Tenant Root Group's id is the tenant id.
+
+```bash
+TENANT_ID=$(az account show --query tenantId -o tsv)
+ROOT="/providers/Microsoft.Management/managementGroups/$TENANT_ID"
+
+# 1. The app, its service principal, a secret valid one year, and Reader on everything.
+#    Prints appId, password and tenant: copy them into the env file (below), then clear
+#    the terminal. The secret is shown only once.
+az ad sp create-for-rbac --name sp-rbaclens-reader --role Reader --scopes "$ROOT" --years 1
+
+APP_ID=$(az ad app list --display-name sp-rbaclens-reader --query "[0].appId" -o tsv)
+SP_ID=$(az ad sp show --id "$APP_ID" --query id -o tsv)
+
+# 2. Management Group Reader on the Tenant Root Group.
+az role assignment create --assignee "$APP_ID" --role "Management Group Reader" --scope "$ROOT"
+
+# 3. The Entra role Directory Readers.
+ROLE_ID=$(az rest --method GET \
+  --url "https://graph.microsoft.com/v1.0/roleManagement/directory/roleDefinitions?\$filter=displayName eq 'Directory Readers'" \
+  --query "value[0].id" -o tsv)
+az rest --method POST --url "https://graph.microsoft.com/v1.0/roleManagement/directory/roleAssignments" \
+  --body "{\"principalId\": \"$SP_ID\", \"roleDefinitionId\": \"$ROLE_ID\", \"directoryScopeId\": \"/\"}"
+
+# 4. Optional: AuditLog.Read.All as an Application permission ("=Role"; "=Scope" would be
+#    Delegated), then admin consent.
+GRAPH=00000003-0000-0000-c000-000000000000
+AUDIT=$(az ad sp show --id "$GRAPH" --query "appRoles[?value=='AuditLog.Read.All'].id | [0]" -o tsv)
+az ad app permission add --id "$APP_ID" --api "$GRAPH" --api-permissions "$AUDIT=Role"
+az ad app permission admin-consent --id "$APP_ID"
+```
+
+**In the portal** instead:
+
+1. **Entra admin center → App registrations → New registration**: name it
+   `sp-rbaclens-reader`, single tenant, no redirect URI. Note the
+   *Application (client) ID* and the *Directory (tenant) ID*.
+2. **Certificates & secrets → New client secret**: copy the *Value* (shown
+   once), and note when it expires.
+3. **Azure portal → Management groups → Tenant Root Group → Access control
+   (IAM) → Add role assignment**: **Reader**, then **Management Group
+   Reader**, each to `sp-rbaclens-reader`. To review only part of the
+   tenant, give Reader on that management group instead.
+4. **Entra admin center → Roles and administrators → Directory Readers →
+   Add assignments**: `sp-rbaclens-reader`.
+5. Optional: **App registrations → sp-rbaclens-reader → API permissions →
+   Add a permission → Microsoft Graph → Application permissions →
+   AuditLog.Read.All**, then **Grant admin consent**.
+
+**Then**, in the env file of the stack (`.env.prod`, or `.env.test`):
+
+```bash
+ARM_CLIENT_ID=<application (client) id>
+ARM_CLIENT_SECRET=<secret value>
+ARM_TENANT_ID=<tenant id>
+```
+
+`make restart prod`, and `make whoami prod` shows which identity is set.
+Or leave them empty and save them on **Settings → Credentials**. Role
+assignments can take a few minutes to apply. The first check shows what the
+identity can read; with AuditLog.Read.All, Data & schedules says *Entra ID
+audit log: read* after that check, or straight away with **Check now**.
 
 ## Healthchecks
 

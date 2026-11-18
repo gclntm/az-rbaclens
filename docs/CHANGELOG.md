@@ -21,6 +21,11 @@ carries a version). `make release V=X.Y.Z` turns that heading into
   records as made by an app (Teams or Outlook for Microsoft 365 groups,
   access packages, PIM, the AD sync) names the app. See
   [iam-access.md](iam-access.md#entra-id-audit-log).
+- **Setting up the service identity, step by step**
+  ([deployment.md](deployment.md#setting-up-the-service-identity)): every
+  permission it needs in one table, Azure CLI commands and portal steps,
+  and why a Microsoft Graph permission must be of the *Application* type.
+  The README's quick start links to it.
 
 ## [0.32.2] - 2026-11-16
 
