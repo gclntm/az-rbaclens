@@ -29,7 +29,9 @@ from app.core.advice_texts import (
     PIM_PORTAL,
     RULES,
     WEIGHT_RANK,
+    _q,
     create_command,
+    credential_delete_commands,
     delete_command,
     owner_remove_commands,
 )
@@ -244,7 +246,10 @@ def _fired(ctx: AdviceContext, f: _Facts) -> list[tuple[str, str, dict[str, Any]
         )
     admin_high = f.level == "access" and f.broad and not f.break_glass
     # Apps mostly read, which Azure never records: "not used" is no reason to remove one (R09 covers apps).
-    if admin_high and unused and f.kind != "app":
+    if "entra_admin_idle" in f.findings and not f.break_glass:
+        # An Entra admin who doesn't sign in: the Activity Log can't say more.
+        fire("R03 idle-admin", f.findings["entra_admin_idle"].detail)
+    elif admin_high and unused and f.kind != "app":
         days = (f.findings["unused"].evidence or {}).get("window_days") or 90
         fire(
             "R03 idle-admin",
@@ -319,6 +324,18 @@ def _fired(ctx: AdviceContext, f: _Facts) -> list[tuple[str, str, dict[str, Any]
             best=best,
         )
     _owner_rules(f, fire)
+    for category, rule in (
+        ("app_secret_long_lived", "R19 long-lived-secret"),
+        ("app_secret_expired", "R20 expired-secret"),
+    ):
+        if category in f.findings:
+            ev = f.findings[category].evidence or {}
+            fire(
+                rule,
+                f.findings[category].detail,
+                app_id=ev.get("app_id"),
+                credentials=ev.get("credentials") or [],
+            )
     if "membership_unknown" in f.findings:
         fire(
             "R11 unknown-members",
@@ -467,6 +484,21 @@ def _how(f: _Facts, rule: str, extra: dict[str, Any]) -> tuple[list[str], list[s
             extra.get("owners") or [],
         )
         return [first, portal], commands
+    if action == "fix_credentials":
+        deletes = credential_delete_commands(
+            ra.principal_id.lower(), extra.get("app_id"), extra.get("credentials") or []
+        )
+        if rule == "R20 expired-secret":
+            return ["Delete the expired secret or certificate:"], deletes
+        app_id = extra.get("app_id")
+        new = [f"az ad app credential reset --id {_q(app_id)} --append --years 1"] if app_id else []
+        return [
+            "Prefer sign-in without a secret (workload identity federation). Otherwise add a "
+            "secret valid a year (the command prints it once), put it where the app uses its "
+            "secret, check it works, then delete the long-lived one:",
+            "Or in the Entra admin center: App registrations › "
+            f"{ra.principal_name or ra.principal_id} › Certificates & secrets.",
+        ], [*new, *deletes]
     if action == "set_responsible":
         return ["An admin sets someone in Settings › Who is responsible."], []
     return [], []

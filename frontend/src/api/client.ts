@@ -755,6 +755,19 @@ export type CapabilityIdentity = {
   owners_elsewhere?: boolean;
 };
 
+/** When a person last signed in (newest of interactive, non-interactive, successful). */
+export type SignInRead = { last_at: string | null; read_at: string | null; idle: boolean; idle_days: number };
+
+/** A secret or certificate on an app: kind and dates only. */
+export type CredentialRead = {
+  via: "registration" | "service_principal";
+  kind: "secret" | "certificate";
+  start_at: string | null;
+  end_at: string | null;
+  expired: boolean;
+  long_lived: boolean;
+};
+
 /** Someone who owns an app or group; ``via``: service_principal | registration | group. */
 export type OwnerRef = { owner_id: string; owner_name: string | null; owner_type: string | null; via: string[] };
 
@@ -912,6 +925,8 @@ export type RegistryPrincipal = {
   /** Service principals, from Graph: the app's publishing tenant, its kind, and whether Microsoft publishes it. */
   app_owner_org?: string | null;
   sp_type?: string | null;
+  /** A person holding powerful access: last sign-in (admins and the person only). */
+  last_sign_in_at?: string | null;
   microsoft?: boolean;
 };
 
@@ -992,6 +1007,8 @@ export type PrincipalPage = {
   owners_elsewhere?: boolean;
   /** The apps and groups holding access that it owns. */
   owns?: OwnedRef[];
+  sign_in?: SignInRead | null;
+  credentials?: CredentialRead[] | null;
 };
 
 export type PrincipalActivity = {
@@ -1422,7 +1439,7 @@ export type GrantPower = { key: CapabilityLevel; label: string; allowed: boolean
 // ---- advice (core/advice.py) ---------------------------------------------------------------
 
 export type AdviceWeight = "must" | "should" | "could" | "info";
-export type AdviceAction = "remove" | "pim" | "replace" | "narrow" | "ask" | "fix_members" | "fix_owners" | "set_responsible" | "keep";
+export type AdviceAction = "remove" | "pim" | "replace" | "narrow" | "ask" | "fix_members" | "fix_owners" | "fix_credentials" | "set_responsible" | "keep";
 export type SuggestedDecision = "keep" | "remove" | "change" | "ask";
 
 export type AdviceNote = { rule: string; weight: AdviceWeight; title: string };
@@ -1453,7 +1470,7 @@ export type IdentityAction = Omit<Advice, "commands" | "also"> & { grants: Advic
 
 export type IdentityAdvice = { actions: IdentityAction[]; more: number; fine: number };
 
-export type AdviceSettings = { new_days: number; expiring_days: number; break_glass: string[] };
+export type AdviceSettings = { new_days: number; expiring_days: number; idle_days: number; break_glass: string[] };
 export type AdviceSettingsRead = AdviceSettings & {
   break_glass_names: { principal_id: string; name: string | null }[];
 };
@@ -1600,6 +1617,8 @@ export type GrantDetail = GrantOrigin & {
   /** An app's or group's grant: who owns it; null = unknown or not an app or group. */
   owners?: OwnerRef[] | null;
   owners_elsewhere?: boolean;
+  sign_in?: SignInRead | null;
+  credentials?: CredentialRead[] | null;
 };
 
 /** Scope ids are ARM paths; the API takes them without the leading slash. */

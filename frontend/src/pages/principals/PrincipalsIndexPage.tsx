@@ -42,6 +42,8 @@ export default function PrincipalsIndexPage() {
   const [query, setQuery] = useState(q);
   const [rows, setRows] = useState<RegistryPrincipal[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Sign-in dates come only for admins (and the person): no column otherwise.
+  const showSignIn = (rows ?? []).some((r) => r.last_sign_in_at);
 
   function setParam(key: string, value: string) {
     const next = new URLSearchParams(sp);
@@ -135,6 +137,7 @@ export default function PrincipalsIndexPage() {
                   <th scope="col" className={NUM}>Grants</th>
                   <th scope="col" className={NUM}>In groups</th>
                   <th scope="col">Last change</th>
+                  {showSignIn && <th scope="col">Last sign-in</th>}
                   <th scope="col">Last seen</th>
                 </tr>
               </thead>
@@ -169,6 +172,9 @@ export default function PrincipalsIndexPage() {
                     <td className={NUM}>{p.assignment_count}</td>
                     <td className={NUM}>{p.group_count}</td>
                     <td>{p.last_activity_at ? formatDateTime(p.last_activity_at) : <span className="text-quaternary">none recorded</span>}</td>
+                    {showSignIn && (
+                      <td>{p.last_sign_in_at ? formatDateTime(p.last_sign_in_at) : <span className="text-quaternary">—</span>}</td>
+                    )}
                     <td>{formatDateTime(p.last_seen_at)}</td>
                   </tr>
                 ))}

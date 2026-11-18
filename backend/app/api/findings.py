@@ -107,7 +107,7 @@ def list_findings(
 def recompute_findings(
     scan_id: int,
     session: Annotated[Session, Depends(get_session)],
-    window_days: int = Query(90, ge=1, le=90),
+    window_days: int | None = Query(None, ge=1, le=365),
 ) -> FindingsResponse:
     """Rebuild coverage + findings for a completed scan (synchronous)."""
     scan = _get_scan_or_404(session, scan_id)

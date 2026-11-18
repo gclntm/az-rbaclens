@@ -79,6 +79,8 @@ class PrincipalRead(BaseModel):
     # Service principals: the app's publishing tenant and kind, from Graph.
     app_owner_org: str | None = None
     sp_type: str | None = None
+    # A person holding powerful access: last sign-in (admins and the person only).
+    last_sign_in_at: datetime | None = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property

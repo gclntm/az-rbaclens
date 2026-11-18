@@ -13,6 +13,11 @@ what a check read instead:
   access or get in as someone else; its secret is a standing key.
 - ``entra_role_via_group``: such a role comes through a group, so whoever
   manages the group's members decides who holds it.
+- ``entra_admin_idle``: a person holds, standing, an Entra role that can change
+  who has access or get keys, and hasn't signed in for the idle threshold
+  (Settings › Advice), or never while the account is older than that. From the
+  sign-in dates a check read (``core/signins.py``); unknown dates raise nothing.
+  Break-glass identities are left out: they are meant to sit idle.
 - ``foreign_group`` (shared with Azure places, ``core/findings.py``): such a
   role is held by a group of another tenant (a partner, through delegated
   admin access): its members are managed there, and can't be seen from here.
@@ -20,10 +25,14 @@ what a check read instead:
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.entra_roles import ENTRA_PLACE, GLOBAL_ADMINISTRATOR, level_of
+from app.core.signins import current_sign_ins
+from app.core.timeutil import as_utc
 from app.db.models import RoleAssignment, RoleDefinition, RoleEligibility, Scan
 
 HIGH, MEDIUM = "high", "medium"
@@ -33,6 +42,7 @@ CATEGORIES = (
     "entra_app_privileged",
     "entra_too_many_global_admins",
     "entra_role_via_group",
+    "entra_admin_idle",
 )
 GLOBAL_ADMINS_ADVISED_MAX = 4
 
@@ -75,6 +85,14 @@ def entra_findings(session: Session, scan: Scan, break_glass: set[str]) -> list:
             .where(RoleEligibility.role_definition_id.ilike(f"%{GLOBAL_ADMINISTRATOR}"))
         ).all()
     }
+
+    from app.core.advice import load_settings
+
+    idle_days = load_settings(session).idle_days
+    now = datetime.now(UTC)
+    sign_ins = current_sign_ins(
+        session, {ra.principal_id for ra in ras if ra.principal_type == "User"}
+    )
 
     drafts: list[FindingDraft] = []
     for ra in ras:
@@ -124,6 +142,32 @@ def entra_findings(session: Session, scan: Scan, break_glass: set[str]) -> list:
                 HIGH,
                 f"{role} {_WHAT['access']}, all the time.",
                 "Make it eligible through PIM, so it is switched on only when needed, with a reason.",
+            )
+        info = sign_ins.get(ra.principal_id.lower())
+        recent_grant = ra.created_on is not None and as_utc(ra.created_on) > now - timedelta(
+            days=idle_days
+        )
+        if (
+            powerful
+            and ra.principal_type == "User"
+            and standing
+            and ra.principal_id.lower() not in break_glass
+            and info is not None
+            and info.idle(idle_days, now)
+            and not recent_grant
+        ):
+            when = (
+                f"they haven't signed in for {idle_days} days (last on {info.last_at:%d %b %Y})"
+                if info.last_at
+                else "they have never signed in"
+            )
+            add(
+                "entra_admin_idle",
+                HIGH,
+                f"{role} {_WHAT[level]}, and {when}.",
+                "Remove the role; if the account is no longer used, disable it.",
+                last_sign_in_at=info.last_at.isoformat() if info.last_at else None,
+                idle_days=idle_days,
             )
         if powerful and ra.principal_type == "ServicePrincipal":
             add(

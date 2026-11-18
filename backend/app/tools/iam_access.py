@@ -108,11 +108,12 @@ def run_scan(scan_id: int) -> None:
                 for eligibility in entra.eligibilities:
                     eligibility.scan_id = scan.id
                     session.add(eligibility)
-            owners = _collect_owners(
-                credential,
-                assignments,
-                [*pim.eligibilities, *(entra.eligibilities if entra is not None else [])],
-            )
+            eligibilities = [
+                *pim.eligibilities,
+                *(entra.eligibilities if entra is not None else []),
+            ]
+            owners = _collect_owners(credential, assignments, eligibilities)
+            sign_ins = _collect_sign_ins(credential, assignments, eligibilities, role_definitions)
             for ra in assignments:
                 ra.scan_id = scan.id
                 session.add(ra)
@@ -125,6 +126,7 @@ def run_scan(scan_id: int) -> None:
             upsert_role_definitions(session, role_definitions)
             persist_group_memberships(session, scan.id, group_memberships)
             _persist_owners(session, scan.id, owners)
+            _persist_sign_ins(session, scan.id, sign_ins)
             # ``None``: Graph refused the group's members (they stay unknown).
             total_members = sum(len(members or ()) for members in group_memberships.values())
             scan.progress_message = f"Done — {len(assignments)} role assignments"
@@ -201,6 +203,48 @@ def _collect_owners(credential: TokenCredential, assignments: list, eligibilitie
     return graph_owners.collect(credential, apps, groups, tenant_id)
 
 
+def _collect_sign_ins(
+    credential: TokenCredential,
+    assignments: list,
+    eligibilities: list,
+    role_definitions: dict[str, dict[str, Any]],
+):
+    """When the people holding a grant at "can change who has access" or "can get
+    keys" here last signed in (tools/graph_signins.py); ``None``: unknown."""
+    from app.core.capabilities import classify
+    from app.tools import graph_signins
+
+    levels = {
+        guid.rsplit("/", 1)[-1].lower(): classify(info.get("permissions")).level
+        for guid, info in role_definitions.items()
+    }
+    people = {
+        r.principal_id.lower()
+        for r in [*assignments, *eligibilities]
+        if r.principal_type == "User"
+        and levels.get(r.role_definition_id.rsplit("/", 1)[-1].lower()) in ("access", "keys")
+    }
+    return graph_signins.collect(credential, people)
+
+
+def _persist_sign_ins(session: Any, scan_id: int, sign_ins: Any) -> None:
+    if not sign_ins:
+        return
+    from app.db.models import PrincipalSignIn
+
+    for s in {s.principal_id: s for s in sign_ins}.values():
+        session.add(
+            PrincipalSignIn(
+                scan_id=scan_id,
+                principal_id=s.principal_id,
+                last_sign_in_at=s.last_sign_in_at,
+                last_non_interactive_at=s.last_non_interactive_at,
+                last_successful_at=s.last_successful_at,
+                account_created_at=s.account_created_at,
+            )
+        )
+
+
 def _persist_owners(session: Any, scan_id: int, owners: Any) -> None:
     if owners is None:
         return
@@ -213,6 +257,24 @@ def _persist_owners(session: Any, scan_id: int, owners: Any) -> None:
                 object_id=object_id,
                 registered_elsewhere=object_id in owners.elsewhere,
                 app_id=owners.app_ids.get(object_id),
+            )
+        )
+    from app.db.models import AppCredential
+
+    keys: set[tuple[str, str, str]] = set()
+    for c in owners.credentials:
+        if (c.object_id, c.via, c.key_id) in keys:
+            continue
+        keys.add((c.object_id, c.via, c.key_id))
+        session.add(
+            AppCredential(
+                scan_id=scan_id,
+                object_id=c.object_id,
+                via=c.via,
+                kind=c.kind,
+                key_id=c.key_id,
+                start_at=c.start_at,
+                end_at=c.end_at,
             )
         )
     seen: set[tuple[str, str, str]] = set()

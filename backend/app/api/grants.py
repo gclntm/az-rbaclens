@@ -9,11 +9,12 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.findings import current_finding
+from app.api.identity_facts import credentials_read, sign_in_read
 from app.api.scope_capabilities import _KIND
 from app.api.scope_views import _condition, _origin
 from app.core.advice import advise_grant, context
@@ -23,6 +24,7 @@ from app.core.findings import finding_sort_key
 from app.core.operation_names import names_for
 from app.core.reviews import period_of
 from app.core.security import require_auth, who_is
+from app.core.visibility import vis_of
 from app.db.models import GroupMembership, Principal, ReviewItem, ReviewRound, Scan, ScanCoverage
 from app.db.session import get_session
 from app.schemas.grants import GrantDetail, GrantOperation, GrantOwner, GrantPower
@@ -82,6 +84,7 @@ def _review_ref(
 @router.get("/{grant_id}", response_model=GrantDetail)
 def grant_detail(
     grant_id: str,
+    request: Request,
     session: Annotated[Session, Depends(get_session)],
     claims: Annotated[dict[str, Any] | None, Depends(require_auth)] = None,
 ) -> GrantDetail:
@@ -154,6 +157,8 @@ def grant_detail(
         review=_review_ref(session, grant_id.lower(), claims),
         advice=advise_grant(context(session, view), ra),
         **_owners(session, ra),
+        sign_in=sign_in_read(session, pid, ra.principal_type, vis_of(request)),
+        credentials=credentials_read(session, pid, ra.principal_type),
         **_condition(view, ra),
         **_origin(ra),
     )

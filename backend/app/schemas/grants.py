@@ -8,6 +8,7 @@ from app.schemas.advice import Advice
 from app.schemas.capabilities import CapabilityLevel, IdentityKind
 from app.schemas.findings import CurrentFindingRead
 from app.schemas.iam_access import ScopeLevel
+from app.schemas.principals import CredentialRead, SignInRead
 from app.schemas.registry import ConditionFields, GrantOrigin, ScopeCrumb
 from app.schemas.reviews import ReviewRef
 
@@ -75,3 +76,7 @@ class GrantDetail(ConditionFields, GrantOrigin):
     # group's owner decides its members); null when unknown or not an app or group.
     owners: list[GrantOwner] | None = None
     owners_elsewhere: bool = False
+    # A person's grant: their last sign-in (admins and the person only).
+    sign_in: SignInRead | None = None
+    # An app's grant: its secrets and certificates.
+    credentials: list[CredentialRead] | None = None

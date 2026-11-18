@@ -10,6 +10,7 @@ import { TabCount, TabNav, tabClass } from "@/components/TabNav";
 import { useToast } from "@/components/Toast";
 import { isRestricted, useMe } from "@/hooks/useMe";
 import ChangesFeed from "@/pages/changes/ChangesFeed";
+import { lowerFirst, signInText } from "@/pages/grants/grantUtils";
 import { formatDateTime } from "@/pages/scopes/scopeUtils";
 import { cx } from "@/components/classes";
 
@@ -128,6 +129,14 @@ export default function PrincipalPage() {
               ? `last change ${formatDateTime(p.last_activity_at)}`
               : "no change recorded (reads are not recorded)"}
           </span>
+          {data.sign_in && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span className={data.sign_in.idle ? "text-warning-primary" : undefined}>
+                {lowerFirst(signInText(data.sign_in))}
+              </span>
+            </>
+          )}
         </div>
       </PageHeader>
 

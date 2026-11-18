@@ -25,6 +25,7 @@ export default function AdviceTab() {
   const [saved, setSaved] = useState<AdviceSettingsRead | null>(null);
   const [newDays, setNewDays] = useState(30);
   const [expiringDays, setExpiringDays] = useState(14);
+  const [idleDays, setIdleDays] = useState(90);
   const [breakGlass, setBreakGlass] = useState<Picked[]>([]);
   const [query, setQuery] = useState("");
   const [matches, setMatches] = useState<RegistryPrincipal[]>([]);
@@ -35,6 +36,7 @@ export default function AdviceTab() {
     setSaved(s);
     setNewDays(s.new_days);
     setExpiringDays(s.expiring_days);
+    setIdleDays(s.idle_days);
     setBreakGlass(s.break_glass_names);
   }
 
@@ -76,6 +78,7 @@ export default function AdviceTab() {
         await api.settings.putAdvice({
           new_days: newDays,
           expiring_days: expiringDays,
+          idle_days: idleDays,
           break_glass: breakGlass.map((b) => b.principal_id),
         }),
       );
@@ -93,6 +96,7 @@ export default function AdviceTab() {
   const dirty =
     newDays !== saved.new_days ||
     expiringDays !== saved.expiring_days ||
+    idleDays !== saved.idle_days ||
     breakGlass.map((b) => b.principal_id).join() !== saved.break_glass.join();
 
   return (
@@ -100,7 +104,7 @@ export default function AdviceTab() {
       <SectionCard
         icon="todo"
         title="Advice"
-        hint="Every grant gets one action from a fixed playbook: the same facts always give the same advice, and each advice names its rule. These settings tune two thresholds and exempt emergency accounts."
+        hint="Every grant gets one action from a fixed playbook: the same facts always give the same advice, and each advice names its rule. These settings tune its thresholds and exempt emergency accounts."
       >
         <form onSubmit={save}>
 
@@ -129,7 +133,25 @@ export default function AdviceTab() {
                 required
               />
             </label>
+            <label className={FORM_FIELD}>
+              <span>Idle after (days)</span>
+              <input
+                type="number"
+                className={cx("font-normal tracking-normal", ADVICE_INPUT)}
+                min={7}
+                max={365}
+                value={idleDays}
+                onChange={(e) => setIdleDays(Number(e.target.value))}
+                required
+              />
+            </label>
           </div>
+          <p className={cx("my-[1em]", CAPTION_MUTED)}>
+            Idle: a grant with no change recorded for this long is &quot;not used&quot;, and someone holding a powerful
+            Entra role who hasn&apos;t signed in for this long is idle. &quot;Not used&quot; can only look as far
+            back as the Activity Log is kept (Settings › Data kept). Saving a new value works out what needs a look
+            again.
+          </p>
 
           <h3 className="mx-0 mt-6 mb-1 text-[0.9375rem] font-bold">Break-glass identities</h3>
           <p className={cx("my-[1em]", CAPTION_MUTED)}>

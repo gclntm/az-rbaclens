@@ -20,7 +20,7 @@ import {
 } from "@/components/classes";
 import ConditionTag from "@/components/ConditionTag";
 import PimTag from "@/components/PimTag";
-import { grantHref, originText } from "@/pages/grants/grantUtils";
+import { credentialText, grantHref, originText } from "@/pages/grants/grantUtils";
 import { formatDay } from "@/pages/scopes/whoUtils";
 import { RoleLink } from "@/components/RoleDetailDrawer";
 import { SectionCard } from "@/components/PageTemplate";
@@ -350,6 +350,32 @@ export default function PrincipalAccessTab({ data }: { data: PrincipalPage }) {
               </li>
             ))}
           </ul>
+        </>
+      )}
+
+      {data.credentials && (
+        <>
+          <h3 className={cx(SECTION_TITLE, "mt-6")}>Secrets and certificates ({data.credentials.length})</h3>
+          <p className={cx("my-[1em]", CAPTION, "text-quaternary")}>
+            Whoever has one can sign in as this app. Dates only: the values are never read.
+          </p>
+          {data.credentials.length === 0 ? (
+            <p className={cx(CAPTION, "text-quaternary")}>None: the app signs in without a secret, or not at all.</p>
+          ) : (
+            <ul className="m-0 list-none p-0">
+              {data.credentials.map((c, i) => (
+                <li
+                  key={`${c.via}-${c.kind}-${c.end_at ?? i}-${i}`}
+                  className={cx(
+                    "border-t border-t-secondary py-1.5",
+                    (c.expired || c.long_lived) && "text-warning-primary",
+                  )}
+                >
+                  {credentialText(c)}
+                </li>
+              ))}
+            </ul>
+          )}
         </>
       )}
     </SectionCard>

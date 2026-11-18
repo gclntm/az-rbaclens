@@ -168,8 +168,8 @@ def build_scan_coverage(session: Session, scan: Scan, window_days: int = 90) -> 
     (older scans pre-migration 0012) are returned with zeroed
     metrics — the UI shows "no data" in that case.
 
-    The window is bounded at 90 days because that's all the Activity
-    Log REST API retains.
+    The window is the idle threshold, capped at how long RBAC Lens keeps
+    the Activity Log (``findings.usage_window_days``).
     """
     # Lazy: tools.iam_access imports app.core.* at module level; this
     # module is imported by the worker at call time, so a top-level

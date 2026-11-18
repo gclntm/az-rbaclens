@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { agoText, daysAgo, givenByLabel, grantHref, lastChangeText, originText } from "./grantUtils";
+import {
+  agoText,
+  credentialText,
+  daysAgo,
+  givenByLabel,
+  grantHref,
+  lastChangeText,
+  originText,
+  signInText,
+} from "./grantUtils";
 
 const NOW = new Date("2026-11-08T12:00:00Z");
 
@@ -38,3 +47,27 @@ describe("grant words", () => {
     expect(lastChangeText("2026-11-08T08:00:00Z", NOW)).toBe("Last change today");
   });
 });
+
+describe("signInText and credentialText", () => {
+  it("say when someone last signed in, and whether that is idle", () => {
+    expect(signInText({ last_at: "2026-11-06T09:00:00Z", read_at: null, idle: false, idle_days: 90 }, NOW)).toBe(
+      "Last signed in 2 days ago",
+    );
+    expect(signInText({ last_at: null, read_at: null, idle: true, idle_days: 90 }, NOW)).toBe(
+      "No sign-in recorded · idle (over 90 days)",
+    );
+  });
+  it("describe a secret by where it is and when it ends", () => {
+    const base = { start_at: null, expired: false, long_lived: false } as const;
+    expect(credentialText({ ...base, via: "registration", kind: "secret", end_at: null })).toBe(
+      "Secret on the app registration, no end date",
+    );
+    expect(
+      credentialText({ ...base, via: "service_principal", kind: "certificate", end_at: "2026-01-01T00:00:00Z", expired: true }),
+    ).toMatch(/^Certificate on the service principal, expired /);
+    expect(
+      credentialText({ ...base, via: "registration", kind: "secret", end_at: "2029-03-03T00:00:00Z", long_lived: true }),
+    ).toMatch(/\(more than two years\)$/);
+  });
+});
+

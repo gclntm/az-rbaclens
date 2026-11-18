@@ -10,8 +10,10 @@ from app.db.models.activity import (
     OperationName,
 )
 from app.db.models.checks import (
+    AppCredential,
     GroupMembership,
     PrincipalOwner,
+    PrincipalSignIn,
     RoleAssignment,
     RoleDefinition,
     RoleEligibility,
@@ -55,6 +57,7 @@ __all__ = [
     "ActivityEvent",
     "ActivityPull",
     "AiText",
+    "AppCredential",
     "AppSetting",
     "Assessment",
     "AuditEvent",
@@ -68,6 +71,7 @@ __all__ = [
     "OperationName",
     "Principal",
     "PrincipalOwner",
+    "PrincipalSignIn",
     "Responsibility",
     "ResponsibleSuggestion",
     "ReviewDecision",

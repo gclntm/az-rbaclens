@@ -142,6 +142,22 @@ RULES: dict[str, Rule] = {
             ("5.18", "8.2"),
         ),
         Rule(
+            "R19 long-lived-secret",
+            "should",
+            "fix_credentials",
+            None,
+            "Replace a secret valid for years",
+            ("5.17", "8.2"),
+        ),
+        Rule(
+            "R20 expired-secret",
+            "could",
+            "fix_credentials",
+            None,
+            "Delete an expired secret",
+            ("5.17",),
+        ),
+        Rule(
             "R12 new-unexplained",
             "should",
             "ask",
@@ -254,6 +270,21 @@ def owner_remove_commands(object_id: str, app_id: str | None, owners: list[dict]
             elif via == "service_principal":
                 url = f"{GRAPH}/servicePrincipals/{object_id}/owners/{oid}/$ref"
                 out.append(f"az rest --method DELETE --url {_q(url)}")
+    return out
+
+
+def credential_delete_commands(sp_id: str, app_id: str | None, creds: list[dict]) -> list[str]:
+    """One ``az … credential delete`` per secret or certificate (``--cert`` for one)."""
+    out: list[str] = []
+    for c in creds:
+        key = str(c.get("key_id") or "")
+        if not key:
+            continue
+        cert = " --cert" if c.get("kind") == "certificate" else ""
+        if c.get("via") == "registration" and app_id:
+            out.append(f"az ad app credential delete --id {_q(app_id)} --key-id {_q(key)}{cert}")
+        elif c.get("via") == "service_principal":
+            out.append(f"az ad sp credential delete --id {_q(sp_id)} --key-id {_q(key)}{cert}")
     return out
 
 

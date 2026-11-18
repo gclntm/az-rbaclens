@@ -83,8 +83,8 @@ SENTENCES: dict[str, tuple[str, str]] = {
         ),
     ),
     "R03 idle-admin": (
-        "1 grant can change who has access high up and was not used in 90 days; remove it.",
-        "{n} grants can change who has access high up and were not used in 90 days; remove them.",
+        "1 grant can change who has access high up and was not used in {days} days; remove it.",
+        "{n} grants can change who has access high up and were not used in {days} days; remove them.",
     ),
     "R04 guest-power": (
         "1 grant gives a guest from another organisation the power to change things; ask the sponsor.",
@@ -134,6 +134,14 @@ SENTENCES: dict[str, tuple[str, str]] = {
     "R18 guest-owner": (
         "1 powerful grant is held by an app or group a guest owns; ask who invited them.",
         "{n} powerful grants are held by apps or groups guests own; ask who invited them.",
+    ),
+    "R19 long-lived-secret": (
+        "1 powerful grant is held by an app with a secret valid for years; replace it.",
+        "{n} powerful grants are held by apps with secrets valid for years; replace them.",
+    ),
+    "R20 expired-secret": (
+        "1 app with a powerful grant still has an expired secret; delete it.",
+        "{n} apps' powerful grants come with expired secrets still on file; delete them.",
     ),
     "R12 new-unexplained": (
         "1 recent grant has no known reason or giver; confirm it.",
@@ -217,7 +225,9 @@ def build_report(session: Session, scope_id: str | None, now: datetime | None = 
     by_rule: dict[str, list[ReportGrant]] = defaultdict(list)
     for ra, adv in advised:
         by_rule[adv.rule].append(_grant(view, ra, adv))
-    recommendations = _recommendations(by_rule)
+    from app.core.findings import usage_window_days
+
+    recommendations = _recommendations(by_rule, usage_window_days(session))
     reviews = _reviews(session, sc, ctx, now)
     changes = _changes(session, sc, len(by_rule.get("R12 new-unexplained", [])), now)
     identities = {
@@ -255,7 +265,9 @@ def build_report(session: Session, scope_id: str | None, now: datetime | None = 
     )
 
 
-def _recommendations(by_rule: dict[str, list[ReportGrant]]) -> list[ReportRecommendation]:
+def _recommendations(
+    by_rule: dict[str, list[ReportGrant]], days: int = 90
+) -> list[ReportRecommendation]:
     out = []
     for rule, grants in by_rule.items():
         if rule not in SENTENCES:
@@ -267,7 +279,9 @@ def _recommendations(by_rule: dict[str, list[ReportGrant]]) -> list[ReportRecomm
                 rule=rule,
                 weight=r.weight,
                 title=r.title,
-                sentence=SENTENCES[rule][0 if len(grants) == 1 else 1].format(n=len(grants)),
+                sentence=SENTENCES[rule][0 if len(grants) == 1 else 1].format(
+                    n=len(grants), days=days
+                ),
                 count=len(grants),
                 controls=list(r.controls),
                 grants=grants[: SAMPLE.get(r.weight, SAMPLE_OTHER)],

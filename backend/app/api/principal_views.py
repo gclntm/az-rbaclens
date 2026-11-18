@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.api.activity import read_events
 from app.api.findings import current_finding
+from app.api.identity_facts import credentials_read, sign_in_read
 from app.api.scope_views import _condition, _origin
 from app.core.activity_targets import MGMT_GROUPS, MGMT_GROUPS_NAME
 from app.core.advice import NO_ACTION, advise_grant, advise_identity
@@ -281,6 +282,8 @@ def principal_page(
         owners=owners,
         owners_elsewhere=owners_elsewhere,
         owns=owns,
+        sign_in=sign_in_read(session, pid, row.principal_type, vis),
+        credentials=credentials_read(session, pid, row.principal_type),
     )
 
 

@@ -70,6 +70,11 @@ def boot_app(monkeypatch: pytest.MonkeyPatch, engine) -> Iterator[TestClient]:
 
     monkeypatch.setattr(activity_api, "run_pull", lambda pull_id: None)
 
+    # A check never asks Graph for sign-ins in tests (tests that need them patch it).
+    from app.tools import graph_signins
+
+    monkeypatch.setattr(graph_signins, "collect", lambda credential, user_ids: None)
+
     # No scheduler loop, and "Run now" dispatches to a no-op worker.
     from app.core import scheduler
     from app.core.config import settings

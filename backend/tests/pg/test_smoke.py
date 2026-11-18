@@ -53,6 +53,7 @@ from tests.test_scope_browser import *  # noqa: F403
 from tests.test_scope_capabilities import *  # noqa: F403
 from tests.test_scope_views import *  # noqa: F403
 from tests.test_settings import *  # noqa: F403
+from tests.test_signins_secrets import *  # noqa: F403
 from tests.test_staleness import *  # noqa: F403
 from tests.test_sweeper import *  # noqa: F403
 from tests.test_todos import *  # noqa: F403

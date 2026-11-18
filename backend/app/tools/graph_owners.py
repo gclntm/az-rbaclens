@@ -9,6 +9,10 @@ its members. A check reads, through Microsoft Graph:
   owners and are skipped;
 - for each group holding a grant: its owners.
 
+The same two calls give each app's secrets and certificates (kind, key id,
+start and end dates; the secret's ``hint`` is dropped, and Graph never
+returns a value).
+
 The identity's Entra role Directory Readers is enough. Graph not answering
 fails the check (:class:`GraphUnavailable`), as for group members; a
 refusal (403) leaves that object's owners unknown (no resolution row); an
@@ -20,6 +24,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 import httpx
@@ -44,6 +49,16 @@ class Owner:
     owner_name: str | None
 
 
+@dataclass(frozen=True)
+class Credential:
+    object_id: str  # the app's service principal (lowercased)
+    via: str  # registration | service_principal
+    kind: str  # secret | certificate
+    key_id: str
+    start_at: datetime | None
+    end_at: datetime | None
+
+
 @dataclass
 class Owners:
     owners: list[Owner] = field(default_factory=list)
@@ -54,6 +69,7 @@ class Owners:
     elsewhere: set[str] = field(default_factory=set)
     # {service principal id: the app's client id (appId)}.
     app_ids: dict[str, str] = field(default_factory=dict)
+    credentials: list[Credential] = field(default_factory=list)
 
 
 class _Refused(Exception):
@@ -112,6 +128,36 @@ def _owner(object_id: str, kind: str, via: str, o: dict[str, Any]) -> Owner:
     )
 
 
+_CREDENTIAL_FIELDS = "passwordCredentials,keyCredentials"
+
+
+def _when(value: Any) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _credentials(sp_id: str, via: str, body: dict[str, Any]) -> list[Credential]:
+    out = []
+    for field_name, kind in (("passwordCredentials", "secret"), ("keyCredentials", "certificate")):
+        for c in body.get(field_name) or []:
+            if c.get("keyId"):
+                out.append(
+                    Credential(
+                        object_id=sp_id,
+                        via=via,
+                        kind=kind,
+                        key_id=str(c["keyId"]).lower(),
+                        start_at=_when(c.get("startDateTime")),
+                        end_at=_when(c.get("endDateTime")),
+                    )
+                )
+    return out
+
+
 def read(
     graph: _Graph,
     apps: dict[str, tuple[str | None, str | None]],
@@ -127,10 +173,14 @@ def read(
         try:
             sp = graph.get(
                 f"{GRAPH}/servicePrincipals/{sp_id}",
-                {"$select": "id,appId,servicePrincipalType,appOwnerOrganizationId"},
+                {
+                    "$select": "id,appId,servicePrincipalType,appOwnerOrganizationId,"
+                    + _CREDENTIAL_FIELDS
+                },
             )
             if sp.get("servicePrincipalType") == "ManagedIdentity":
                 continue
+            creds = _credentials(sp_id, "service_principal", sp)
             if sp.get("appId"):
                 out.app_ids[sp_id] = str(sp["appId"]).lower()
             found = [
@@ -141,8 +191,10 @@ def read(
             if sp.get("appId") and tenant_id and org == tenant_id:
                 try:
                     app = graph.get(
-                        f"{GRAPH}/applications(appId='{sp['appId']}')", {"$select": "id"}
+                        f"{GRAPH}/applications(appId='{sp['appId']}')",
+                        {"$select": f"id,{_CREDENTIAL_FIELDS}"},
                     )
+                    creds += _credentials(sp_id, "registration", app)
                     found += [
                         _owner(sp_id, "app", "registration", o)
                         for o in graph.owners(f"{GRAPH}/applications/{app['id']}/owners")
@@ -158,6 +210,7 @@ def read(
             out.read.add(sp_id)  # gone since: no owners to show
             continue
         out.owners.extend(o for o in found if o.owner_id)
+        out.credentials.extend(creds)
         out.read.add(sp_id)
     for group_id in sorted(groups):
         try:

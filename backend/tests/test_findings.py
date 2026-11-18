@@ -640,3 +640,30 @@ def test_a_partners_group_holding_a_powerful_role_is_flagged_not_taken_for_delet
     assert cats["foreign_group"] == ["Owner → partner-grp on prod"]  # powerful roles only
     assert "unresolved_principal" not in cats
     assert "unused" not in cats
+
+
+def test_the_idle_threshold_sets_the_unused_window_capped_at_what_is_kept(
+    app_with_sqlite: TestClient,
+):
+    from app.db.models import ScanCoverage
+    from app.db.session import SessionLocal
+
+    with SessionLocal() as db:
+        scan_id = _seed_baseline(db)
+
+    def window() -> int:
+        with SessionLocal() as db:
+            return db.get(ScanCoverage, scan_id).window_days
+
+    # Saving a new threshold works out the current checks again with it.
+    r = app_with_sqlite.put("/api/settings/advice", json={"idle_days": 60})
+    assert r.status_code == 200 and r.json()["idle_days"] == 60
+    assert window() == 60
+    # Never longer than the Activity Log is kept.
+    r = app_with_sqlite.put(
+        "/api/settings/data-kept", json={"values": {"event_retention_days": 30}}
+    )
+    assert r.status_code == 200
+    app_with_sqlite.put("/api/settings/advice", json={"idle_days": 120})
+    assert window() == 30
+    assert app_with_sqlite.put("/api/settings/advice", json={"idle_days": 3}).status_code == 422

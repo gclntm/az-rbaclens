@@ -50,6 +50,9 @@ export const CATEGORY_LABEL: Record<string, string> = {
   app_owned_by_app: "Another app owns this app",
   app_owners: "People own this app and can act as it",
   group_owners: "People own this group and pick its members",
+  entra_admin_idle: "Entra admin who hasn't signed in",
+  app_secret_long_lived: "App secret valid for years",
+  app_secret_expired: "Expired app secret still on file",
 };
 
 /** One sentence per category for the "Needs a look" list on Home. */
@@ -72,6 +75,9 @@ export const CATEGORY_SENTENCE: Record<string, string> = {
   app_owned_by_app: "Another app owns this app: whoever controls that app can add a secret here and act as it.",
   app_owners: "People own this app: each can add a secret to it and use its powerful access.",
   group_owners: "People own this group: each can add anyone to it, themselves included, and so give its access.",
+  entra_admin_idle: "Someone holds a powerful Entra role, all the time, and hasn't signed in for the idle threshold.",
+  app_secret_long_lived: "An app with powerful access has a secret or certificate valid more than two years.",
+  app_secret_expired: "An app with powerful access still has an expired secret or certificate.",
 };
 
 export const SEVERITY_ORDER: Record<FindingSeverity, number> = { high: 0, medium: 1, low: 2 };

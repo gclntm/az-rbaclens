@@ -191,12 +191,21 @@ def list_principals(
         if pid in ids:
             counts[pid] = counts.get(pid, 0) + 1
     groups = view.groups_of(ids)
+    from app.api.identity_facts import sees_sign_ins
+    from app.core.signins import current_sign_ins
+
+    sign_ins = current_sign_ins(
+        session,
+        {p.id for p in rows if p.principal_type == "User" and sees_sign_ins(vis, p.id)},
+    )
     out: list[PrincipalRead] = []
     for p in rows:
         item = PrincipalRead.model_validate(p)
         item.assignment_count = counts.get(p.id, 0)
         item.group_count = len(groups.get(p.id, ()))
         item.level = view.strongest_level.get(p.id)
+        if p.id in sign_ins:
+            item.last_sign_in_at = sign_ins[p.id].last_at
         out.append(item)
     return out
 

@@ -1,4 +1,4 @@
-import type { GrantOrigin } from "@/api/client";
+import type { CredentialRead, GrantOrigin, SignInRead } from "@/api/client";
 
 /** The Grant page for a grant id (stable across daily checks). */
 export function grantHref(grantId: string): string {
@@ -46,4 +46,24 @@ export function agoText(iso: string, now: Date = new Date()): string {
 export function lastChangeText(lastActivityAt: string | null | undefined, now: Date = new Date()): string {
   if (!lastActivityAt) return "No change recorded (reads are not recorded)";
   return `Last change ${agoText(lastActivityAt, now)}`;
+}
+
+/** "Last signed in 12 days ago", "No sign-in recorded", with "idle" past the threshold. */
+export function signInText(s: SignInRead, now: Date = new Date()): string {
+  const base = s.last_at ? `Last signed in ${agoText(s.last_at, now)}` : "No sign-in recorded";
+  return s.idle ? `${base} · idle (over ${s.idle_days} days)` : base;
+}
+
+/** "Secret, valid until 3 Mar 2029 (more than two years)" and the like. */
+export function credentialText(c: CredentialRead): string {
+  const kind = c.kind === "certificate" ? "Certificate" : "Secret";
+  const where = c.via === "registration" ? "on the app registration" : "on the service principal";
+  if (!c.end_at) return `${kind} ${where}, no end date`;
+  const when = formatDay(c.end_at);
+  if (c.expired) return `${kind} ${where}, expired ${when}`;
+  return `${kind} ${where}, valid until ${when}${c.long_lived ? " (more than two years)" : ""}`;
+}
+
+export function lowerFirst(text: string): string {
+  return text.charAt(0).toLowerCase() + text.slice(1);
 }

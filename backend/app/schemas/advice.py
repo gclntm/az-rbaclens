@@ -15,6 +15,7 @@ Action = Literal[
     "ask",
     "fix_members",
     "fix_owners",
+    "fix_credentials",
     "set_responsible",
     "keep",
 ]
@@ -82,6 +83,10 @@ class AdviceSettings(BaseModel):
 
     new_days: int = Field(30, ge=1, le=365)
     expiring_days: int = Field(14, ge=1, le=180)
+    # Idle after this many days: a grant with no change recorded (``unused``, the
+    # window capped at how long the Activity Log is kept), and a person holding a
+    # powerful Entra role who hasn't signed in (``entra_admin_idle``).
+    idle_days: int = Field(90, ge=7, le=365)
     # Emergency identities: exempt from the standing-admin rules (R02, R03).
     break_glass: list[str] = Field(default_factory=list, max_length=50)
 

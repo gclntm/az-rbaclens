@@ -10,11 +10,13 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
+from datetime import datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.db.models import PrincipalOwner, Scan, ScanOwnerResolution
+from app.core.timeutil import as_utc
+from app.db.models import AppCredential, PrincipalOwner, Scan, ScanOwnerResolution
 
 _CHUNK = 500
 
@@ -43,12 +45,10 @@ class ObjectOwners:
         return list(seen.values())
 
 
-def current_owners(session: Session, object_ids: set[str]) -> dict[str, ObjectOwners]:
-    """``{object id: ObjectOwners}`` for each of ``object_ids`` (lowercased)."""
-    ids = sorted({o.lower() for o in object_ids})
-    out: dict[str, ObjectOwners] = {i: ObjectOwners() for i in ids}
-    if not ids:
-        return out
+def _newest(session: Session, object_ids: set[str]) -> dict[str, tuple[int, bool, str | None]]:
+    """``{object: (scan id, registered elsewhere, app id)}`` of the newest completed
+    check that read each object's owners."""
+    ids = sorted(object_ids)
     newest: dict[str, tuple[int, bool, str | None]] = {}
     for i in range(0, len(ids), _CHUNK):
         chunk = ids[i : i + _CHUNK]
@@ -75,6 +75,47 @@ def current_owners(session: Session, object_ids: set[str]) -> dict[str, ObjectOw
             )
         ).all():
             newest[object_id] = (scan_id, bool(elsewhere), app_id)
+    return newest
+
+
+@dataclass(frozen=True)
+class CredentialRef:
+    via: str  # registration | service_principal
+    kind: str  # secret | certificate
+    key_id: str
+    start_at: datetime | None
+    end_at: datetime | None
+
+
+def current_credentials(session: Session, object_ids: set[str]) -> dict[str, list[CredentialRef]]:
+    """``{app: [its secrets and certificates]}`` from the newest check that read it;
+    an app no check read is missing."""
+    newest = _newest(session, {o.lower() for o in object_ids})
+    out: dict[str, list[CredentialRef]] = {o: [] for o in newest}
+    by_scan: dict[int, list[str]] = defaultdict(list)
+    for object_id, (scan_id, _e, _a) in newest.items():
+        by_scan[scan_id].append(object_id)
+    for scan_id, objects in by_scan.items():
+        for i in range(0, len(objects), _CHUNK):
+            for c in session.scalars(
+                select(AppCredential)
+                .where(AppCredential.scan_id == scan_id)
+                .where(AppCredential.object_id.in_(objects[i : i + _CHUNK]))
+                .order_by(AppCredential.end_at)
+            ).all():
+                out[c.object_id].append(
+                    CredentialRef(c.via, c.kind, c.key_id, as_utc(c.start_at), as_utc(c.end_at))
+                )
+    return out
+
+
+def current_owners(session: Session, object_ids: set[str]) -> dict[str, ObjectOwners]:
+    """``{object id: ObjectOwners}`` for each of ``object_ids`` (lowercased)."""
+    ids = sorted({o.lower() for o in object_ids})
+    out: dict[str, ObjectOwners] = {i: ObjectOwners() for i in ids}
+    if not ids:
+        return out
+    newest = _newest(session, set(ids))
     by_scan: dict[int, list[str]] = defaultdict(list)
     for object_id, (scan_id, elsewhere, app_id) in newest.items():
         out[object_id] = ObjectOwners(known=True, registered_elsewhere=elsewhere, app_id=app_id)

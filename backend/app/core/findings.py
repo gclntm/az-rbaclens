@@ -64,10 +64,13 @@ CATEGORY_PRIORITY = {
             "entra_app_privileged",
             "entra_too_many_global_admins",
             "entra_role_via_group",
+            "entra_admin_idle",
             "guest_owner",
             "app_owned_by_app",
             "app_owners",
             "group_owners",
+            "app_secret_long_lived",
+            "app_secret_expired",
         )
     )
 }
@@ -93,11 +96,15 @@ CATEGORIES = (
     "entra_app_privileged",
     "entra_too_many_global_admins",
     "entra_role_via_group",
+    "entra_admin_idle",
     # Owners of apps and groups (core/owner_findings.py)
     "guest_owner",
     "app_owned_by_app",
     "app_owners",
     "group_owners",
+    # App secrets (core/credential_findings.py)
+    "app_secret_long_lived",
+    "app_secret_expired",
 )
 
 FOREIGN_GROUP_DETAIL = (
@@ -409,9 +416,24 @@ def previous_done_scan(session: Session, scan: Scan) -> Scan | None:
     ).first()
 
 
-def compute_scan_findings(session: Session, scan_id: int, window_days: int = 90) -> ScanCoverage:
+def usage_window_days(session: Session) -> int:
+    """How far back ``unused`` looks: the idle threshold (Settings › Advice), capped
+    at how long the Activity Log is kept (Settings › Data kept), so it never claims
+    "no change in N days" on fewer days of events."""
+    from app.core.advice import load_settings
+    from app.core.retention_settings import effective
+
+    idle = load_settings(session).idle_days
+    kept = effective(session).event_retention_days
+    return min(idle, kept) if kept > 0 else idle
+
+
+def compute_scan_findings(
+    session: Session, scan_id: int, window_days: int | None = None
+) -> ScanCoverage:
     """Build coverage for a completed scan, cache it, and replace its findings.
 
+    ``window_days``: the ``unused`` window, by default :func:`usage_window_days`.
     Raises ``ValueError`` for an unknown or non-``done`` scan. Commits.
     """
     scan = session.get(Scan, scan_id)
@@ -420,6 +442,8 @@ def compute_scan_findings(session: Session, scan_id: int, window_days: int = 90)
     if scan.status != "done":
         raise ValueError(f"scan {scan_id} is {scan.status}; findings need a completed scan")
 
+    if window_days is None:
+        window_days = usage_window_days(session)
     coverage = build_scan_coverage(session, scan, window_days)
 
     previous = previous_done_scan(session, scan)
@@ -446,6 +470,9 @@ def compute_scan_findings(session: Session, scan_id: int, window_days: int = 90)
     break_glass = set(load_settings(session).break_glass)
     drafts.extend(entra_findings(session, scan, break_glass))
     drafts.extend(owner_findings(session, scan, break_glass))
+    from app.core.credential_findings import credential_findings
+
+    drafts.extend(credential_findings(session, scan))
     now = datetime.now(UTC)
 
     session.execute(delete(Finding).where(Finding.scan_id == scan_id))
@@ -494,6 +521,19 @@ def compute_scan_findings(session: Session, scan_id: int, window_days: int = 90)
     return cache
 
 
+def recompute_latest(session: Session) -> list[int]:
+    """Recompute every current check's findings (after a threshold changed)."""
+    done: list[int] = []
+    for scan_id in sorted(latest_done_scan_ids(session)):
+        try:
+            compute_scan_findings(session, scan_id)
+            done.append(scan_id)
+        except Exception:
+            logger.exception("findings recompute failed for scan %s", scan_id)
+            session.rollback()
+    return done
+
+
 def recompute_for_subscription(session: Session, subscription_id: str) -> list[int]:
     """Recompute findings for every latest completed scan that covers ``subscription_id``."""
     return recompute_for_subscriptions(session, {subscription_id})
@@ -524,10 +564,8 @@ def recompute_for_subscriptions(session: Session, subscription_ids: set[str]) ->
             )
         if not covers:
             continue
-        cache = session.get(ScanCoverage, scan_id)
-        window_days = cache.window_days if cache is not None else 90
         try:
-            compute_scan_findings(session, scan_id, window_days)
+            compute_scan_findings(session, scan_id)
             done.append(scan_id)
         except Exception:
             logger.exception("findings recompute failed for scan %s", scan_id)

@@ -103,6 +103,27 @@ class OwnedRead(BaseModel):
     grants: int
 
 
+class SignInRead(BaseModel):
+    """When a person last signed in (newest of interactive, non-interactive and
+    successful), as the newest check read it. Shown to admins and the person."""
+
+    last_at: datetime | None  # None: no sign-in recorded
+    read_at: datetime | None
+    idle: bool  # past the idle threshold (Settings › Advice)
+    idle_days: int
+
+
+class CredentialRead(BaseModel):
+    """A secret or certificate on an app: kind and dates only."""
+
+    via: str  # registration | service_principal
+    kind: str  # secret | certificate
+    start_at: datetime | None
+    end_at: datetime | None
+    expired: bool
+    long_lived: bool  # valid more than two years
+
+
 class EntraActivation(BaseModel):
     """One PIM activation of an Entra role, from the Entra ID audit log: use of an
     eligibility, not a change of who has access."""
@@ -138,6 +159,10 @@ class PrincipalPage(BaseModel):
     owners_elsewhere: bool = False
     # The apps and groups holding access that it owns.
     owns: list[OwnedRead] = []
+    # A person: last sign-in (null: unknown, or not shown to this viewer).
+    sign_in: SignInRead | None = None
+    # An app: its secrets and certificates (null: no check read them).
+    credentials: list[CredentialRead] | None = None
 
 
 class OperationCount(BaseModel):

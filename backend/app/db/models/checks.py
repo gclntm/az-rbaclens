@@ -371,3 +371,63 @@ class ScanOwnerResolution(Base):
     __table_args__ = (
         Index("uq_scan_owner_resolutions_scan_object", "scan_id", "object_id", unique=True),
     )
+
+
+class PrincipalSignIn(Base):
+    """When a person holding a powerful grant last signed in, as a check read it
+    from Microsoft Graph (``signInActivity``, 0044).
+
+    No row: not asked, or Graph refused (it needs AuditLog.Read.All and Entra ID
+    P1/P2): unknown. A row with no dates: no sign-in recorded.
+    """
+
+    __tablename__ = "principal_sign_ins"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    scan_id: Mapped[int] = mapped_column(
+        ForeignKey("scans.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    principal_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    last_sign_in_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    last_non_interactive_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    last_successful_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    account_created_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+
+    __table_args__ = (
+        Index("uq_principal_sign_ins_scan_principal", "scan_id", "principal_id", unique=True),
+    )
+
+
+class AppCredential(Base):
+    """A secret or certificate on an app holding a grant, as a check read it (0044).
+
+    Dates and kind only: Graph never returns a secret's value, and its hint
+    (first characters) is not kept. Read with the owners
+    (``tools/graph_owners.py``): ``scan_owner_resolutions`` says whether the
+    app was read.
+    """
+
+    __tablename__ = "app_credentials"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    scan_id: Mapped[int] = mapped_column(
+        ForeignKey("scans.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    # The app's service principal (lowercased).
+    object_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    via: Mapped[str] = mapped_column(String(20), nullable=False)  # registration | service_principal
+    kind: Mapped[str] = mapped_column(String(12), nullable=False)  # secret | certificate
+    key_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    start_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    end_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+
+    __table_args__ = (
+        Index(
+            "uq_app_credentials_scan_object_key",
+            "scan_id",
+            "object_id",
+            "via",
+            "key_id",
+            unique=True,
+        ),
+    )

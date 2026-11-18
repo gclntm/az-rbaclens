@@ -31,7 +31,7 @@ import { nextDecision, periodLabel } from "@/pages/reviews/reviewUtils";
 import { LEVEL_INFO } from "@/pages/scopes/whoUtils";
 import { cx } from "@/components/classes";
 
-import { agoText, formatDay, givenByLabel, lastChangeText } from "./grantUtils";
+import { agoText, credentialText, formatDay, givenByLabel, lastChangeText, signInText } from "./grantUtils";
 
 /** A block that is the page's first <div>: left out on paper (it says "loading" or "not found"). */
 const PRINT_SKIP_IF_FIRST = "print:[.page-content>&:first-of-type]:hidden";
@@ -212,6 +212,24 @@ export default function GrantPage() {
             )}
             {!grant.principal_name && <span className={cx(TAG, TAG_TONE.unresolved)}>no longer in Entra ID?</span>}
           </dd>
+          {grant.sign_in && (
+            <>
+              <dt className={FACT_DT}>Signed in</dt>
+              <dd className={cx(FACT_DD, grant.sign_in.idle && "text-warning-primary")}>{signInText(grant.sign_in)}</dd>
+            </>
+          )}
+          {grant.credentials && grant.credentials.length > 0 && (
+            <>
+              <dt className={FACT_DT}>Secrets</dt>
+              <dd className={FACT_DD}>
+                {grant.credentials.map((c, i) => (
+                  <div key={i} className={c.expired || c.long_lived ? "text-warning-primary" : undefined}>
+                    {credentialText(c)}
+                  </div>
+                ))}
+              </dd>
+            </>
+          )}
           {((grant.owners?.length ?? 0) > 0 || grant.owners_elsewhere) && (
             <>
               <dt className={FACT_DT}>Owners</dt>
