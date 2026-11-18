@@ -113,7 +113,9 @@ Entra roles (the place `/providers/microsoft.aadiam`) get only the four
 `entra_*` categories, `foreign_group` and the owner categories: no usage is recorded for them (`app/core/entra_findings.py`).
 The four owner categories (`app/core/owner_findings.py`) apply only to grants
 at `access` or `keys`, use the owners from the newest check that read them,
-leave out break-glass identities as owners, and skip managed identities,
+leave out owners who already hold that level or more at the place or above
+(directly, through a group, or eligible through PIM) and break-glass
+identities, and skip managed identities,
 Microsoft's apps and apps registered in another tenant. Their `evidence`
 lists the `owners` (`id`, `name`, `type`, `via`) and the app's `app_id`; the
 advice (rules `R17 owners` and `R18 guest-owner`, action `fix_owners`) gives
@@ -386,7 +388,6 @@ operation, resource and outcome on one day, from `first_occurred_at` to
 | `PUT /settings/data-kept` `{values: {name: days \| null}}` | Save values (null clears one: back to the server's). 422 on a bad value. The audit entry carries the values before and after in `detail`. |
 | `POST /settings/data-kept/preview` `{values}` | What a retention run with these values would delete, per kind, and the days it would fold; nothing is saved or deleted. |
 | `GET` / `POST /settings/database/retention` | The values that apply now; `POST` applies them now and returns what was deleted. |
-| `POST /settings/database/cleanup-scans` `{older_than_days, only_failed}` | Deprecated (Settings › Data kept replaces it; removed in a later release). Delete finished checks older than N days, never one in flight or still owning a place. |
 | `GET /audit/events?limit=100&offset=0` | The audit log, newest first (`limit` ≤ 500). `detail`, when set, says what the change changed (never the request body). |
 | `GET /scope-browser/subscriptions?mgmt_group=` | Subscriptions read live from Azure (cached in the process), optionally under one management group. 502 when Azure fails. |
 | `POST /scope-browser/refresh` | Clear that cache (204). |

@@ -12,7 +12,9 @@ passwords are flagged (decision 2), on the grants of the current check:
   (medium; high on Entra ID, a management group or a subscription);
 - ``guest_owner``: a guest (``#EXT#``) owns the app or group (high).
 
-Break-glass identities (Settings › Advice) are left out as owners. Managed
+Owners who already hold the same power or more at that place (directly,
+through a group, or eligible through PIM) are left out: owning gives them
+nothing new. So are break-glass identities (Settings › Advice). Managed
 identities have no owners; Microsoft's apps and apps registered in another
 tenant get none of these. Owners a check couldn't read raise nothing.
 """
@@ -24,7 +26,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.capabilities import classify
+from app.core.capabilities import LEVEL_RANK, classify
 from app.core.owners import OwnerRef, current_owners
 from app.db.models import RoleAssignment, RoleDefinition, Scan
 from app.tools.graph_resolver import is_microsoft_app
@@ -52,6 +54,33 @@ def _owner_evidence(owners: list[OwnerRef], vias: dict[str, list[str]]) -> list[
 
 def _count(n: int, one: str, many: str) -> str:
     return f"1 {one}" if n == 1 else f"{n} {many}"
+
+
+class _AlreadyHolds:
+    """Does an owner already hold a level at a place, or above it, without owning?
+
+    Its own current grants and eligibilities, and those of the groups it is
+    in, at the place or a place above it (``core/current_view.py``).
+    """
+
+    def __init__(self, session: Session, owner_ids: set[str]):
+        from app.core.current_view import current_view
+
+        self.view = current_view(session)
+        self.groups = self.view.groups_of(owner_ids) if owner_ids else {}
+        self.rows: dict[str, list[Any]] = {}
+        for row in [*self.view.ras, *self.view.eligibilities]:
+            self.rows.setdefault(row.principal_id.lower(), []).append(row)
+
+    def __call__(self, owner_id: str, scope: str, level: str) -> bool:
+        chain = {scope.lower(), *self.view.ancestors(scope.lower())}
+        holders = {owner_id, *self.groups.get(owner_id, set())}
+        return any(
+            row.scope.lower() in chain
+            and LEVEL_RANK[self.view.capability_of(row).level] <= LEVEL_RANK[level]
+            for h in holders
+            for row in self.rows.get(h, ())
+        )
 
 
 def owner_findings(session: Session, scan: Scan, break_glass: set[str]) -> list:
@@ -87,19 +116,24 @@ def owner_findings(session: Session, scan: Scan, break_glass: set[str]) -> list:
         return []
     owners = current_owners(session, {ra.principal_id for ra in ras})
     bg = {b.lower() for b in break_glass}
+    already = _AlreadyHolds(session, {o.owner_id for info in owners.values() for o in info.owners})
 
     drafts: list[FindingDraft] = []
     for ra in ras:
         info = owners.get(ra.principal_id.lower())
         if info is None or not info.known or info.registered_elsewhere:
             continue
-        people = [o for o in info.people if o.owner_id not in bg]
+        level = levels[ra.role_definition_id.rsplit("/", 1)[-1].lower()]
+        people = [
+            o
+            for o in info.people
+            if o.owner_id not in bg and not already(o.owner_id, ra.scope, level)
+        ]
         if not people:
             continue
         vias: dict[str, list[str]] = {}
         for o in info.owners:
             vias.setdefault(o.owner_id, []).append(o.via)
-        level = levels[ra.role_definition_id.rsplit("/", 1)[-1].lower()]
         role = ra.role_name or ra.role_definition_id.rsplit("/", 1)[-1]
         who = ra.principal_name or ra.principal_id
         place = ra.scope_name or ra.scope.rstrip("/").rsplit("/", 1)[-1] or ra.scope

@@ -318,6 +318,33 @@ def test_owners_of_an_app_with_powerful_access_need_a_look(app_with_sqlite: Test
     assert set(_findings(scan_id, break_glass=["ada-id"])) == {("app_owned_by_app", "app")}
 
 
+def test_an_owner_who_already_holds_that_power_adds_nothing(app_with_sqlite: TestClient):
+    from app.db.models import GroupMembership, ScanGroupResolution
+    from app.db.session import SessionLocal
+    from tests.test_registry import MG, OWNER, _ra
+
+    scan_id = _owned_world(app_with_sqlite)
+    with SessionLocal() as db:
+        # sp-ci (the owning app) is Owner of the management group above the subscription;
+        # ada is, through a group she is in.
+        db.add_all(
+            [
+                _ra(scan_id, MG, "mgmt_group", "sp-ci", "ServicePrincipal", OWNER, "sp-ci"),
+                _ra(scan_id, MG, "mgmt_group", "grp-admins", "Group", OWNER, "grp-admins"),
+                ScanGroupResolution(scan_id=scan_id, group_id="grp-admins"),
+                GroupMembership(
+                    scan_id=scan_id,
+                    group_id="grp-admins",
+                    member_id="ada-id",
+                    member_type="User",
+                    member_name="ada@example.org",
+                ),
+            ]
+        )
+        db.commit()
+    assert set(_findings(scan_id)) == set()
+
+
 def test_a_guest_owner_and_a_group_owner_need_a_look_only_on_powerful_grants(
     app_with_sqlite: TestClient,
 ):

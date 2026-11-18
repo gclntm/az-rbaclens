@@ -271,7 +271,9 @@ stays reviewed.
 An app or a group whose grant can change who has access or get keys and
 passwords also needs a look when someone owns it: people (each can use that
 grant), another app (whoever controls that app controls this one), or a
-guest. Break-glass identities (Settings › Advice) are left out as owners.
+guest. Owners who already hold that power or more at the place (directly,
+through a group, or eligible through PIM) are left out, since owning gives
+them nothing new; so are break-glass identities (Settings › Advice).
 The advice gives the commands that remove an owner; keep as owners only
 those who must change the app or manage the group.
 
