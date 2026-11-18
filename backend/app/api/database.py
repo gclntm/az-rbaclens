@@ -285,7 +285,8 @@ def run_reindex(
     raise HTTPException(status_code=501, detail="REINDEX not supported")
 
 
-@router.post("/cleanup-scans", response_model=MaintenanceResult)
+# Deprecated: Settings › Data kept replaces it (api/data_kept.py); removed in a later release.
+@router.post("/cleanup-scans", response_model=MaintenanceResult, deprecated=True)
 def cleanup_old_scans(
     payload: CleanupRequest,
     session: Annotated[Session, Depends(get_session)],
@@ -324,14 +325,18 @@ def cleanup_old_scans(
 
 
 @router.get("/retention", response_model=RetentionPolicy)
-def get_retention_policy() -> RetentionPolicy:
+def get_retention_policy(session: Annotated[Session, Depends(get_session)]) -> RetentionPolicy:
+    """The values that apply now: saved on Settings › Data kept, else the server's."""
+    from app.core.retention_settings import effective
+
+    rs = effective(session)
     return RetentionPolicy(
         interval_hours=settings.retention_interval_hours,
-        event_retention_days=settings.event_retention_days,
-        snapshot_keep_per_scope=settings.snapshot_keep_per_scope,
-        failed_snapshot_retention_days=settings.failed_snapshot_retention_days,
-        audit_retention_days=settings.audit_retention_days,
-        change_retention_days=settings.change_retention_days,
+        event_retention_days=rs.event_retention_days,
+        snapshot_keep_per_scope=rs.snapshot_keep_per_scope,
+        failed_snapshot_retention_days=rs.failed_snapshot_retention_days,
+        audit_retention_days=rs.audit_retention_days,
+        change_retention_days=rs.change_retention_days,
     )
 
 

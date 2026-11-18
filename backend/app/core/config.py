@@ -91,10 +91,18 @@ class Settings(BaseSettings):
     #   ``snapshot_keep_per_scope`` — never one that currently owns a scope;
     # - failed snapshots older than ``failed_snapshot_retention_days``;
     # - audit events older than ``audit_retention_days``.
+    # These are defaults: values saved on Settings › Data kept override them
+    # (core/retention_settings.py).
     retention_interval_hours: int = 24
     retention_first_run_minutes: int = 5
     event_retention_days: int = 120
+    # The Entra ID audit log's entries; unset = as long as the Activity Log.
+    entra_audit_retention_days: int | None = None
+    # Routine app activity folds into daily counts after this many days (0 = never).
+    compact_after_days: int = 4
     snapshot_keep_per_scope: int = 6
+    # Checks are also kept while younger than this many days (0 = only the count rule).
+    snapshot_keep_days: int = 0
     failed_snapshot_retention_days: int = 7
     audit_retention_days: int = 365
     # Changes feed entries (app.core.changes) older than this many days.

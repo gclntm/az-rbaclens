@@ -217,10 +217,15 @@ class CompactionResult:
     rows_after: int = 0
 
 
-def days_to_compact(session: Session, now: datetime) -> list[tuple[str, date]]:
-    """``(target, day)`` with stored events, old enough, not compacted yet; oldest first."""
+def days_to_compact(
+    session: Session, now: datetime, after_days: int = COMPACT_AFTER_DAYS
+) -> list[tuple[str, date]]:
+    """``(target, day)`` with stored events, old enough, not compacted yet; oldest first.
+    ``after_days`` is the setting (Settings › Data kept); ``0`` folds nothing."""
+    if after_days <= 0:
+        return []
     cutoff = datetime.combine(
-        now.astimezone(UTC).date() - timedelta(days=COMPACT_AFTER_DAYS), time.min, tzinfo=UTC
+        now.astimezone(UTC).date() - timedelta(days=after_days), time.min, tzinfo=UTC
     )
     # The UTC day, whatever the database session's time zone.
     at = ActivityEvent.occurred_at
@@ -246,12 +251,15 @@ def days_to_compact(session: Session, now: datetime) -> list[tuple[str, date]]:
 
 
 def compact(
-    session: Session, now: datetime | None = None, limit: int | None = None
+    session: Session,
+    now: datetime | None = None,
+    limit: int | None = None,
+    after_days: int = COMPACT_AFTER_DAYS,
 ) -> CompactionResult:
-    """Fold every day old enough and not folded yet (at most ``limit`` days)."""
+    """Fold every day older than ``after_days`` and not folded yet (at most ``limit`` days)."""
     now = now or datetime.now(UTC)
     result = CompactionResult()
-    todo = days_to_compact(session, now)
+    todo = days_to_compact(session, now, after_days)
     for target, day in todo[:limit] if limit else todo:
         try:
             before, after = compact_day(session, target, day, now)

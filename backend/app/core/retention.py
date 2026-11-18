@@ -29,8 +29,9 @@ from typing import NamedTuple
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from app.core.activity_compaction import compact, prune_markers
+from app.core.activity_compaction import compact, days_to_compact, prune_markers
 from app.core.config import settings
+from app.core.retention_settings import RetentionSettings, effective
 from app.core.timeutil import as_utc
 from app.db.models import (
     AccessChange,
@@ -78,21 +79,31 @@ def snapshots_to_prune(
     now: datetime,
     keep_per_scope: int,
     failed_days: int,
+    keep_days: int = 0,
 ) -> tuple[set[int], set[int]]:
     """``(surplus done snapshots, expired failed snapshots)`` to delete.
 
-    Pure: the caller loads the rows and does the deleting. In-flight
-    snapshots and any snapshot in ``owners`` are always kept.
+    A completed check is kept while it is among the newest ``keep_per_scope``
+    of its place, or younger than ``keep_days`` (``0``: no time rule):
+    whichever keeps more. Pure: the caller loads the rows and does the
+    deleting. In-flight snapshots and any snapshot in ``owners`` are always
+    kept.
     """
     surplus: set[int] = set()
     if keep_per_scope > 0:
+        young_after = now - timedelta(days=keep_days) if keep_days > 0 else None
         by_scope: dict[str, list[SnapshotInfo]] = defaultdict(list)
         for s in scans:
             if s.status == "done":
                 by_scope[s.scope.lower()].append(s)
         for rows in by_scope.values():
             rows.sort(key=lambda s: (as_utc(s.finished_at or s.created_at), s.id), reverse=True)
-            surplus.update(s.id for s in rows[keep_per_scope:] if s.id not in owners)
+            surplus.update(
+                s.id
+                for s in rows[keep_per_scope:]
+                if s.id not in owners
+                and (young_after is None or as_utc(s.finished_at or s.created_at) < young_after)
+            )
 
     expired: set[int] = set()
     if failed_days > 0:
@@ -117,7 +128,10 @@ def scope_owner_ids(session: Session) -> set[int]:
     }
 
 
-def prune_snapshots(session: Session, now: datetime) -> tuple[int, int]:
+def prune_snapshots(
+    session: Session, now: datetime, rs: RetentionSettings | None = None
+) -> tuple[int, int]:
+    rs = rs or effective(session)
     rows = [
         SnapshotInfo(*r)
         for r in session.execute(
@@ -128,8 +142,9 @@ def prune_snapshots(session: Session, now: datetime) -> tuple[int, int]:
         rows,
         scope_owner_ids(session),
         now,
-        settings.snapshot_keep_per_scope,
-        settings.failed_snapshot_retention_days,
+        rs.snapshot_keep_per_scope,
+        rs.failed_snapshot_retention_days,
+        rs.snapshot_keep_days,
     )
     if surplus | expired:
         # FKs cascade (role assignments, findings, coverage, memberships).
@@ -138,10 +153,25 @@ def prune_snapshots(session: Session, now: datetime) -> tuple[int, int]:
     return len(surplus), len(expired)
 
 
-def prune_events(session: Session, now: datetime, days: int) -> int:
-    if days <= 0:
-        return 0
-    cutoff = now - timedelta(days=days)
+def prune_events(session: Session, now: datetime, days: int, entra_days: int | None = None) -> int:
+    """Delete Activity Log events older than ``days`` and Entra ID audit log
+    entries older than ``entra_days`` (``None``: the same); ``0`` keeps them."""
+    total = 0
+    if days > 0:
+        total = _prune_activity(session, now - timedelta(days=days))
+    entra_days = days if entra_days is None else entra_days
+    if entra_days > 0:
+        n = session.execute(
+            delete(DirectoryAuditEvent).where(
+                DirectoryAuditEvent.occurred_at < now - timedelta(days=entra_days)
+            )
+        ).rowcount
+        session.commit()
+        total += n or 0
+    return total
+
+
+def _prune_activity(session: Session, cutoff: datetime) -> int:
     total = 0
     while True:
         ids = select(ActivityEvent.id).where(ActivityEvent.occurred_at < cutoff).limit(_EVENT_BATCH)
@@ -151,13 +181,7 @@ def prune_events(session: Session, now: datetime, days: int) -> int:
         session.commit()
         total += n or 0
         if not n or n < _EVENT_BATCH:
-            break
-    # The Entra ID audit log's membership changes are kept as long (tools/entra_audit.py).
-    n = session.execute(
-        delete(DirectoryAuditEvent).where(DirectoryAuditEvent.occurred_at < cutoff)
-    ).rowcount
-    session.commit()
-    return total + (n or 0)
+            return total
 
 
 def prune_audit(session: Session, now: datetime, days: int) -> int:
@@ -190,6 +214,17 @@ def prune_pulls(session: Session, now: datetime, days: int) -> int:
     """
     if days <= 0:
         return 0
+    n = session.execute(
+        delete(ActivityPull)
+        .where(*_old_pulls(now, days))
+        .execution_options(synchronize_session=False)
+    ).rowcount
+    session.commit()
+    return n or 0
+
+
+def _old_pulls(now: datetime, days: int) -> tuple:
+    """Conditions on ``activity_pulls`` rows retention deletes (see :func:`prune_pulls`)."""
     newest = (
         select(func.max(ActivityPull.id))
         .where(ActivityPull.status == "done")
@@ -198,38 +233,81 @@ def prune_pulls(session: Session, now: datetime, days: int) -> int:
     last_jobs = select(JobSchedule.last_job_id).where(
         JobSchedule.kind == "activity_pull", JobSchedule.last_job_id.is_not(None)
     )
-    n = session.execute(
-        delete(ActivityPull)
-        .where(
-            ActivityPull.status.in_(("done", "failed")),
-            ActivityPull.created_at < now - timedelta(days=days),
-            ActivityPull.id.not_in(newest),
-            ActivityPull.id.not_in(last_jobs),
+    return (
+        ActivityPull.status.in_(("done", "failed")),
+        ActivityPull.created_at < now - timedelta(days=days),
+        ActivityPull.id.not_in(newest),
+        ActivityPull.id.not_in(last_jobs),
+    )
+
+
+def preview(session: Session, rs: RetentionSettings, now: datetime | None = None) -> dict[str, int]:
+    """What a retention run with ``rs`` would delete (and fold), without doing it.
+    Same selections as the run itself."""
+    now = now or datetime.now(UTC)
+    rows = [
+        SnapshotInfo(*r)
+        for r in session.execute(
+            select(Scan.id, Scan.scope, Scan.status, Scan.finished_at, Scan.created_at)
+        ).all()
+    ]
+    surplus, expired = snapshots_to_prune(
+        rows,
+        scope_owner_ids(session),
+        now,
+        rs.snapshot_keep_per_scope,
+        rs.failed_snapshot_retention_days,
+        rs.snapshot_keep_days,
+    )
+
+    def older(column, days: int) -> int:
+        if days <= 0:
+            return 0
+        return session.scalar(select(func.count()).where(column < now - timedelta(days=days))) or 0
+
+    return {
+        "checks": len(surplus),
+        "failed_checks": len(expired),
+        "activity_events": older(ActivityEvent.occurred_at, rs.event_retention_days),
+        "entra_audit": older(DirectoryAuditEvent.occurred_at, rs.entra_audit_retention_days),
+        "changes": older(AccessChange.occurred_at, rs.change_retention_days),
+        "audit": older(AuditEvent.occurred_at, rs.audit_retention_days),
+        "pulls": (
+            session.scalar(
+                select(func.count())
+                .select_from(ActivityPull)
+                .where(*_old_pulls(now, rs.pull_record_retention_days))
+            )
+            or 0
         )
-        .execution_options(synchronize_session=False)
-    ).rowcount
-    session.commit()
-    return n or 0
+        if rs.pull_record_retention_days > 0
+        else 0,
+        "days_to_fold": len(days_to_compact(session, now, rs.compact_after_days)),
+    }
 
 
 def run_retention(
     session: Session, now: datetime | None = None, compact_limit: int | None = None
 ) -> RetentionResult:
     now = now or datetime.now(UTC)
+    # Saved on Settings › Data kept, else the server's (core/retention_settings.py).
+    rs = effective(session)
     result = RetentionResult()
-    result.events_deleted = prune_events(session, now, settings.event_retention_days)
-    if settings.event_retention_days > 0:
-        prune_markers(session, (now - timedelta(days=settings.event_retention_days)).date())
+    result.events_deleted = prune_events(
+        session, now, rs.event_retention_days, rs.entra_audit_retention_days
+    )
+    if rs.event_retention_days > 0:
+        prune_markers(session, (now - timedelta(days=rs.event_retention_days)).date())
     # Machine activity of days old enough becomes daily counts (core/activity_compaction.py).
     # ``compact_limit`` caps one run, for a call from the Settings page.
-    folded = compact(session, now, limit=compact_limit)
+    folded = compact(session, now, limit=compact_limit, after_days=rs.compact_after_days)
     result.days_compacted = folded.days
     result.events_compacted = folded.events_before
     result.rows_after_compaction = folded.rows_after
-    result.snapshots_deleted, result.failed_snapshots_deleted = prune_snapshots(session, now)
-    result.audit_deleted = prune_audit(session, now, settings.audit_retention_days)
-    result.changes_deleted = prune_changes(session, now, settings.change_retention_days)
-    result.pulls_deleted = prune_pulls(session, now, settings.pull_record_retention_days)
+    result.snapshots_deleted, result.failed_snapshots_deleted = prune_snapshots(session, now, rs)
+    result.audit_deleted = prune_audit(session, now, rs.audit_retention_days)
+    result.changes_deleted = prune_changes(session, now, rs.change_retention_days)
+    result.pulls_deleted = prune_pulls(session, now, rs.pull_record_retention_days)
     return result
 
 

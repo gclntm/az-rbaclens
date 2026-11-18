@@ -172,3 +172,8 @@ class AuditEvent(Base):
     status_code: Mapped[int] = mapped_column(Integer, nullable=False)
     # The caller's address as the app sees it (core/audit.py); empty on rows before 0.13.
     client_ip: Mapped[str | None] = mapped_column(String(45))
+    # What the change changed, when the endpoint says so (``request.state.audit_detail``,
+    # 0042): never the request body.
+    detail: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql")
+    )

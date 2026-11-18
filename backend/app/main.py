@@ -23,6 +23,7 @@ from app.api import (
     scope_capabilities,
     scope_views,
 )
+from app.api import data_kept as data_kept_api
 from app.api import findings as findings_api
 from app.api import grants as grants_api
 from app.api import jobs as jobs_api
@@ -120,6 +121,7 @@ app.include_router(scope_browser.router, prefix="/api", dependencies=_authed)
 app.include_router(auth_api.settings_router, prefix="/api", dependencies=_admin)
 app.include_router(settings_api.router, prefix="/api", dependencies=_admin)
 app.include_router(database.router, prefix="/api", dependencies=_admin)
+app.include_router(data_kept_api.router, prefix="/api", dependencies=_admin)
 app.include_router(audit_api.router, prefix="/api", dependencies=_admin)
 app.include_router(registry_api.admin_router, prefix="/api", dependencies=_admin)
 app.include_router(notifications_api.router, prefix="/api", dependencies=_admin)

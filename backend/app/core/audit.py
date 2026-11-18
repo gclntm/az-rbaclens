@@ -90,6 +90,8 @@ class AuditMiddleware(BaseHTTPMiddleware):
                 path=path,
                 status_code=response.status_code,
                 client_ip=_client_ip(request),
+                # Set by an endpoint that says what it changed; never the body.
+                detail=getattr(request.state, "audit_detail", None),
             )
             # In a worker thread: the write is synchronous, and a slow
             # database must not freeze the event loop for every request.

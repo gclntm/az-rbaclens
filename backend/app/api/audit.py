@@ -8,7 +8,7 @@ renders it as a simple table.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict
@@ -32,6 +32,8 @@ class AuditEventRead(BaseModel):
     path: str
     status_code: int
     client_ip: str | None = None
+    # What the change changed, when the endpoint said so (e.g. Settings › Data kept).
+    detail: dict[str, Any] | None = None
 
 
 @router.get("/events", response_model=list[AuditEventRead])
