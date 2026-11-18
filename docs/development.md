@@ -257,6 +257,13 @@ While there, under **Settings → Advanced Security** (formerly Code security; p
 turn on Dependabot alerts, secret scanning with push protection, and
 CodeQL's default setup.
 
+### Plans
+
+A plan for a feature or a release is a working document: save it as
+`docs/plan-<topic>.md`. Git ignores that name (`.gitignore`), so plans stay
+on this machine and are never pushed. What ships is described in the
+CHANGELOG and the docs above.
+
 ## Keeping private data out of the repository
 
 The repository is meant to be published; the data it is developed against

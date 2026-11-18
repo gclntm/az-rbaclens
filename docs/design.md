@@ -2,7 +2,6 @@
 
 How RBAC Lens looks and how its UI is built: Untitled UI React (the free MIT
 components) on Tailwind CSS 4, with our own colours, in a light and a dark theme.
-History and decisions: [plan-untitled-ui.md](plan-untitled-ui.md).
 
 ---
 

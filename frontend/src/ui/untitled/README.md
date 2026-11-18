@@ -1,8 +1,8 @@
 # Untitled UI React (vendored)
 
 MIT-licensed components from https://github.com/untitleduico/react (see `LICENSE`),
-copied as source. The commit they come from is in `UPSTREAM`. Plan:
-`docs/plan-untitled-ui.md`.
+copied as source. The commit they come from is in `UPSTREAM`. How the app
+uses them: `docs/design.md`.
 
 - **Only the open-source (MIT) components** go here, never PRO ones: this
   repository may become public.

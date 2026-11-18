@@ -38,37 +38,6 @@ vars is [reference.md](reference.md); the UI rules are in
   them (missing `ENCRYPTION_KEY`, scope-casing surprises, REINDEX
   permission errors, etc.).
 
-## Plans
-
-Plans of record:
-
-- [Before the first push to GitHub](plan-before-github.md) — phases 1–4
-  shipped (checks, Activity Log and schedules; safe by default; UI; code
-  health, by 0.25.0). **Phase 5, publish:** cleaned and licensed
-  (Apache 2.0); next, a README for strangers and the GitHub side.
-- [Untitled UI for the interface](plan-untitled-ui.md) — complete,
-  shipped in 0.29.0–0.31.0. Every page on Untitled UI React's open-source
-  components and Tailwind CSS 4, in light, dark or the system theme; the
-  old hand-written stylesheets are gone.
-
-Shipped, kept as a record:
-
-- [Advice, to-dos and the assessment report](plan-advice-and-report.md) —
-  phases 11–14. A playbook of fixed rules that gives one action per grant
-  and a "What to do" list per identity, suggested review decisions with a
-  to-do list checked by the daily check, an assessment report mapped to
-  ISO/IEC 27001:2022 (print to PDF, CSV annex, saved assessments), and
-  optional AI wording.
-- [Who can do what, where, and when](plan-who-can-do-what.md) — phases
-  6–10. Plain words in the UI, "since when, given by whom" on every grant,
-  a changes feed, a daily check of the whole tenant by default,
-  responsible people (with suggestions from the `owner` tag), monthly
-  Keep / Remove / Ask reviews, and a notification path.
-- [Redesign plan](redesign-plan.md) — phases 1–5. The UX assessment, the
-  scope as hub, findings as worklist, and the database work behind it:
-  P0 fixes, `scopes` / `principals` / `findings` / schedules, retention
-  and performance.
-
 ---
 
 ## What is this app for?

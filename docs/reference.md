@@ -49,8 +49,7 @@ to the [Changelog](#changelog). Don't duplicate `docs/` here; link to it.
 ```
 .
 ├── docs/                 reference (this), design, architecture, development, deployment, api, data-model,
-│                         iam-access, auth, troubleshooting, README-MAKE, CHANGELOG,
-│                         plan-* (plans of record and shipped plans)
+│                         iam-access, auth, troubleshooting, README-MAKE, CHANGELOG, dockerhub
 ├── backend/
 │   ├── app/api/          health, auth, iam_access, scan_results, scan_export,
 │   │                     role_definitions, findings, registry, scope_views,
@@ -282,20 +281,6 @@ mgmt_group_log, retention, csv_safe, rotate_encryption_key. On Postgres
 ---
 
 ## Roadmap
-
-Plans of record:
-
-- [docs/plan-untitled-ui.md](plan-untitled-ui.md) — the
-  interface on Untitled UI React with light / dark / system themes.
-  Complete, shipped in 0.29.0–0.31.0.
-- [docs/plan-before-github.md](plan-before-github.md) — phases
-  1–4 shipped (by 0.25.0). **Phase 5, publish:** cleaned and licensed
-  (Apache 2.0); next, a README for strangers and the GitHub side.
-
-Shipped earlier: [redesign-plan.md](redesign-plan.md) (phases
-1–5), [plan-who-can-do-what.md](plan-who-can-do-what.md)
-(phases 6–10), [plan-advice-and-report.md](plan-advice-and-report.md)
-(phases 11–14).
 
 Parked: write operations (tagging, creating identities) — RBAC Lens stays
 read-only.

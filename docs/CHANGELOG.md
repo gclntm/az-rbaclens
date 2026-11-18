@@ -26,6 +26,8 @@ carries a version). `make release V=X.Y.Z` turns that heading into
   permission it needs in one table, Azure CLI commands and portal steps,
   and why a Microsoft Graph permission must be of the *Application* type.
   The README's quick start links to it.
+- **Plans are no longer published.** Working plans are saved as
+  `docs/plan-<topic>.md`, which git ignores.
 
 ## [0.32.2] - 2026-11-16
 

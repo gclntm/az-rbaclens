@@ -9,10 +9,9 @@ check with the one before, so it can tell who got or lost access.
 The app answers one question in plain words: who can do what, where,
 and since when. It runs a daily check of the whole tenant, keeps a feed
 of changes, and names a responsible person who reviews each place every
-month ([`docs/plan-who-can-do-what.md`](docs/plan-who-can-do-what.md),
-shipped). It also says what to do about it: advice on every grant, a
+month. It also says what to do about it: advice on every grant, a
 to-do list after each review, and an assessment report mapped to
-ISO/IEC 27001 ([`docs/plan-advice-and-report.md`](docs/plan-advice-and-report.md), shipped).
+ISO/IEC 27001.
 RBAC Lens only reads Azure: it uses a read-only service principal
 (`sp-rbaclens-reader`) and never changes anything there.
 
@@ -118,11 +117,6 @@ index of features, routes, tables and env vars is
 | [`docs/auth.md`](docs/auth.md)                       | Optional Entra ID sign-in, admins, what non-admins see      |
 | [`docs/data-model.md`](docs/data-model.md)           | DB schema, migrations, indexes                              |
 | [`docs/troubleshooting.md`](docs/troubleshooting.md) | Common errors and how to fix them                           |
-| [`docs/plan-before-github.md`](docs/plan-before-github.md) | Plan of record: phases 1–4 shipped; phase 5 (publish) under way |
-| [`docs/plan-untitled-ui.md`](docs/plan-untitled-ui.md) | Shipped (0.29.0–0.31.0): the interface on Untitled UI React, light and dark |
-| [`docs/plan-advice-and-report.md`](docs/plan-advice-and-report.md) | Shipped: advice on every grant, to-dos after reviews, ISO 27001 assessment report, optional AI wording |
-| [`docs/plan-who-can-do-what.md`](docs/plan-who-can-do-what.md) | Shipped redesign: plain words, changes feed, responsible people, monthly reviews |
-| [`docs/redesign-plan.md`](docs/redesign-plan.md)     | Earlier redesign (phases 1–5, shipped): registries, findings, schedules |
 
 ## Repo layout
 

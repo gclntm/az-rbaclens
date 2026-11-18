@@ -65,3 +65,6 @@ backups/
 
 # Local helper writing Azure credentials from pass into the env files (not published)
 scripts/azure-env.sh
+
+# Plans (docs/plan-<topic>.md): working documents, kept on this machine only
+docs/plan-*.md
