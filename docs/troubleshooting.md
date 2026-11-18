@@ -107,6 +107,22 @@ Entra ID audit log**:
   group, not them; those stay "first seen". So does a change older than
   what Entra keeps (7 or 30 days) when the collection started.
 
+## An app or group shows no owners
+
+Who can do what says nothing about owners on a row when:
+
+- it has none;
+- it is a **managed identity**: these have no owners;
+- Microsoft Graph refused its owners: they are unknown, not absent. The
+  identity needs the Entra role **Directory Readers**
+  ([deployment.md](deployment.md#setting-up-the-service-identity));
+- no check has read them yet: owners are read from 0.36.0 on, by the next
+  check of a place where the app or group holds a grant.
+
+An app registered in another tenant (Microsoft's or a vendor's) says "owned
+in its publisher's tenant": its registration's owners are there, out of
+sight.
+
 ## Entra ID is missing from Places, or shows as not read
 
 Entra roles are read only by a check of the **Tenant Root Group** (the daily

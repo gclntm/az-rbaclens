@@ -11,7 +11,7 @@ and plain JSON on the SQLite test engine.
 
 | Area | Tables |
 |---|---|
-| Checks (snapshots) | `scans`, `role_assignments`, `role_eligibilities`, `scan_group_resolutions`, `group_memberships`, `role_definitions` |
+| Checks (snapshots) | `scans`, `role_assignments`, `role_eligibilities`, `scan_group_resolutions`, `group_memberships`, `scan_owner_resolutions`, `principal_owners`, `role_definitions` |
 | Findings | `scan_coverage`, `findings`, `review_decisions` |
 | Registries and changes | `scopes`, `principals`, `access_changes` |
 | Activity Log | `activity_pulls`, `activity_events`, `activity_compacted_days`, `operation_names` |
@@ -67,6 +67,11 @@ role_eligibilities     id, scan_id → scans (CASCADE), azure_id (unique per sca
 scan_group_resolutions id, scan_id → scans (CASCADE), group_id; UNIQUE (scan_id, group_id)
 group_memberships      id, scan_id → scans (CASCADE), group_id, member_id, member_type,
                        member_name; UNIQUE (scan_id, group_id, member_id)
+scan_owner_resolutions id, scan_id → scans (CASCADE), object_id, registered_elsewhere,
+                       app_id (an app's client id); UNIQUE (scan_id, object_id)    (0043)
+principal_owners       id, scan_id → scans (CASCADE), object_id, object_kind (app | group),
+                       via (registration | service_principal | group), owner_id (IX),
+                       owner_type, owner_name; UNIQUE (scan_id, object_id, via, owner_id)
 role_definitions       role_definition_id PK (bare GUID, lowercased), role_name, role_type,
                        description, permissions JSON, assignable_scopes JSON, fetched_at
 ```
@@ -79,6 +84,13 @@ role_definitions       role_definition_id PK (bare GUID, lowercased), role_name,
   for the group (possibly with no members); no row means it was refused or
   never asked. Both give zero `group_memberships` rows; the resolution row
   tells them apart.
+- **Owners** (`app/tools/graph_owners.py`) follow the same rule: a
+  `scan_owner_resolutions` row means Graph answered for the app (its
+  service principal, and its registration when it is in this tenant) or the
+  group; no row means refused, so unknown. `object_id` is the app's service
+  principal or the group; managed identities are not asked. The current
+  owners come from the newest completed check that read the object
+  (`app/core/owners.py`).
 - **`role_definitions` is a global cache.** Filled during checks, shared
   by all of them, and kept when a check is deleted.
 - **Eligibilities** (PIM) are per check and follow the same "current" rule
@@ -146,7 +158,7 @@ principals           PK id (lowercased object id), display_name, principal_type,
                      app_owner_org, sp_type (0031)
 access_changes       id, occurred_at, first_seen_scan_id → scans (SET NULL),
                      kind (granted | removed | eligible_added | eligible_removed |
-                           member_added | member_removed),
+                           member_added | member_removed | owner_added | owner_removed),
                      source (activity_log | created_on | daily_check | entra_audit),
                      scope, scope_name, scope_level, principal_*, role_*, level,
                      via_group_id, via_group_name, actor_id, actor_name,
@@ -182,13 +194,16 @@ nested inside it in both checks (named in `direct_group_name`), between the
 two checks.
 A whole group nested into another stays `daily_check`: its entry names the
 nested group, not the members it brings. `subject_key` is the grant id for grants and
-eligibilities, `member:<group>:<member>` for memberships.
+eligibilities, `member:<group>:<member>` for memberships, `owner:<object>:<owner>`
+for owners (`app/core/owner_changes.py`: only for objects whose owners both
+checks read; `via_group_*` is the app or group owned).
 
 Entra role changes also come straight from the Entra ID audit log, after
 each collection (`record_entra_audit_changes`): rows with `source =
 'entra_audit'` and no `first_seen_scan_id`, for what no check saw (before
 the first check that read Entra ID, or given and removed between two
-checks). It only adds what is missing: one action recorded by PIM and by
+checks). Owner changes too (`record_owner_audit_changes`), for apps and
+groups that hold access. It only adds what is missing: one action recorded by PIM and by
 the directory is one row, and a change a check reports is not added twice.
 
 The feed is filled once from the checks on file when it is empty (at
@@ -236,12 +251,12 @@ operation_names      operation PK (lowercased), provider (IX), display_name,
   metadata (`app/core/operation_names.py`), refreshed after a pull for
   providers missing or older than 7 days.
 
-## Entra ID audit log (0040, 0041)
+## Entra ID audit log (0040, 0041, 0043)
 
 ```
 directory_audit_events
                      id, audit_id (Entra's id, UNIQUE),
-                     kind (group | role | eligible | activation, 0041),
+                     kind (group | role | eligible | activation, 0041 | owner, 0043),
                      action (add | remove), occurred_at (IX), result,
                      group_id (NULL for a role entry), group_name, role_id (0041),
                      member_id (IX), member_type, member_name,
@@ -249,8 +264,10 @@ directory_audit_events
                      raw JSON, created_at
 ```
 
-Only group membership entries and Entra role entries (given, removed,
-eligible through PIM, activated; the list is `ACTIVITIES`), read through
+Only group membership entries, Entra role entries (given, removed,
+eligible through PIM, activated) and owner entries (of a group, an app
+registration or a service principal; `group_id` is the object owned, an app
+registration as `appid:<client id>`); the list is `ACTIVITIES`, read through
 Microsoft Graph by an `activity_pulls` row with
 `subscription_id = "entra-directory"` (`app/tools/entra_audit.py`). Ids
 are lowercased, as in `group_memberships`. Never part of the Activity Log:
@@ -433,6 +450,7 @@ always starts on the current schema.
 | 0040  | `directory_audit_events`; `access_changes.actor_type` / `direct_group_name`; source `entra_audit` |
 | 0041  | `directory_audit_events.kind` / `role_id`; `group_id` optional (Entra role entries) |
 | 0042  | `audit_events.detail`: what an audited change changed, when the endpoint says so |
+| 0043  | `principal_owners`, `scan_owner_resolutions`; change kinds `owner_added` / `owner_removed` |
 
 ### Migration conventions
 

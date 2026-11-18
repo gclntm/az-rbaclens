@@ -11,7 +11,8 @@ The stacks sign in as a read-only service principal (see
 [deployment.md](deployment.md#azure-identity-least-privilege)): **Reader**
 on the management groups to check, **Management Group Reader** on the
 Tenant Root Group, and the Entra role **Directory Readers** for names,
-group members and who holds which Entra role in Microsoft Graph. How to set it up:
+group members, the owners of apps and groups, and who holds which Entra
+role in Microsoft Graph. How to set it up:
 [deployment.md](deployment.md#setting-up-the-service-identity).
 
 Without Graph read access, identities show as GUIDs and groups get a
@@ -20,7 +21,7 @@ Without Graph read access, identities show as GUIDs and groups get a
 
 Optional: the Graph application permission **AuditLog.Read.All** lets
 RBAC Lens read the Entra ID audit log, to say who added or removed a group
-member ([Entra ID audit log](#entra-id-audit-log)).
+member or an owner ([Entra ID audit log](#entra-id-audit-log)).
 
 ## Checks
 
@@ -123,6 +124,17 @@ Each row says how the access arrives (given here, inherited from a parent,
 more roles). Groups show their member count and expand to the people.
 **Inside** lists the resource groups and resources below that give someone
 more than they have here.
+
+**Owners.** An app's owner can add a secret to it and act as it, with
+everything the app holds; a group's owner decides its members, themselves
+included. Neither shows as a grant. The row of an app or a group says how
+many own it ("2 owners can act as it", "1 owner decides its members"), or
+"owned in its publisher's tenant" for an app registered elsewhere (Microsoft
+or a vendor), whose registration's owners are there. Owners are shown beside
+the app or group, not counted in the levels; their names are on its page.
+Managed identities have no owners. Each check reads the owners of the apps
+and groups holding a grant in it; owners Graph refused are unknown, and the
+row says nothing.
 
 ### High-risk roles
 
@@ -229,10 +241,14 @@ redirect):
 - **What they did**: its own Activity Log over 7, 30 or 90 days (a group:
   its members'). Shown to admins and to the person themselves.
 - **Needs a look**: findings on those grants.
+- **Owners** (an app or a group): who owns it, and how: its app
+  registration, its service principal, or the group.
+- **Owns** (anyone): the apps and groups holding access that it owns, with
+  the most each can do and where.
 
 `/grants/<id>` is one grant in plain words: who, which role, what it
-allows, where, since when and from whom, its findings, the advice, and this
-month's review decision. With AI wording on, grant and identity pages offer
+allows, where, since when and from whom, its findings, the advice, this
+month's review decision and, for an app's or a group's grant, its owners. With AI wording on, grant and identity pages offer
 **Explain in plain words** ([deployment.md](deployment.md#ai-wording-optional)).
 
 ## Needs a look
@@ -252,6 +268,13 @@ never used, the top operations and narrower built-in roles. Decisions are
 keyed on a fingerprint that is stable across checks, so a reviewed finding
 stays reviewed.
 
+An app or a group whose grant can change who has access or get keys and
+passwords also needs a look when someone owns it: people (each can use that
+grant), another app (whoever controls that app controls this one), or a
+guest. Break-glass identities (Settings › Advice) are left out as owners.
+The advice gives the commands that remove an owner; keep as owners only
+those who must change the app or manage the group.
+
 ## Reviews, To do, Changes and Report
 
 - **Reviews** (`/reviews`): every month, each responsible person (Settings ›
@@ -268,12 +291,12 @@ stays reviewed.
   between two visits. The first check is the starting point. What it
   covers:
 
-  | | Azure roles | Entra roles | Group members |
-  |---|---|---|---|
-  | Changes after the first check | yes | yes | yes, for groups that hold access |
-  | Changes from before the first check | no: the starting point | yes, as far back as the Entra ID audit log goes (30 days on P1/P2) | no |
-  | A grant given and removed between two checks | no; the Activity Log page has both events | yes, from the audit log | no |
-  | Who did it | the Activity Log, else Azure's own record | the Entra ID audit log | the Entra ID audit log |
+  | | Azure roles | Entra roles | Group members | Owners of apps and groups |
+  |---|---|---|---|---|
+  | Changes after the first check | yes | yes | yes, for groups that hold access | yes, for apps and groups that hold access |
+  | Changes from before the first check | no: the starting point | yes, as far back as the Entra ID audit log goes (30 days on P1/P2) | no | yes, from the audit log entries on file |
+  | A grant given and removed between two checks | no; the Activity Log page has both events | yes, from the audit log | no | yes, from the audit log |
+  | Who did it | the Activity Log, else Azure's own record | the Entra ID audit log | the Entra ID audit log | the Entra ID audit log |
 
   Without the event, a change is "first seen" by the check, with no
   author. The audit log's group entries only name the author of what a
@@ -302,9 +325,9 @@ activity (who read which blob) is not in the Activity Log and not covered.
 Adding someone to a group, or giving them an Entra role, is a change in
 Entra ID, not in Azure, so the Activity Log never records it. When the
 identity has **AuditLog.Read.All**, RBAC Lens reads the Entra ID audit log
-through Microsoft Graph every hour and keeps its group membership and Entra
-role entries (given, removed, eligible through PIM, activated), nothing
-else. An Entra role given through PIM is recorded twice, by PIM with the
+through Microsoft Graph every hour and keeps its group membership, owner
+(of a group, an app registration or a service principal) and Entra role
+entries (given, removed, eligible through PIM, activated), nothing else. An Entra role given through PIM is recorded twice, by PIM with the
 person who did it and by the directory with the PIM service: the person
 wins. On the Changes page, a member who joined or left a
 group that holds access then shows who did it and the exact time, *from the
@@ -321,7 +344,12 @@ Entra ID audit log*:
   Connect sync for a group synced from on-premises Active Directory (the
   person is then in the on-premises logs);
 - a whole group nested into another brings its members with one entry that
-  names the nested group, not them: those members stay "first seen".
+  names the nested group, not them: those members stay "first seen";
+- an owner added to or removed from an app or group that holds access gets
+  its author the same way, and an owner added and removed between two
+  checks becomes a change of its own. Owner entries are kept from 0.36.0
+  on: a collection of the last 30 days started by hand (Data & schedules)
+  reads the earlier ones once.
 
 Data & schedules says, under **Activity Log coverage**, whether the log can
 be read, and why not (the permission, or a licence refusal from Graph). RBAC

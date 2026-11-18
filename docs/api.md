@@ -104,9 +104,21 @@ a subscription it covers, and on demand (`app/core/findings.py`).
 | `entra_app_privileged` | an app holds an Entra role that can change who has access or get keys and passwords |
 | `entra_too_many_global_admins` | more than four identities hold Global Administrator, standing or eligible |
 | `entra_role_via_group` | such an Entra role comes through a group |
+| `app_owners` | people own an app whose grant can change who has access or get keys and passwords: each can add a secret and act as it (high on Entra ID, a management group or a subscription) |
+| `app_owned_by_app` | another app owns such an app (high) |
+| `group_owners` | someone owns a group holding such a grant, and so decides who has it (high on Entra ID, a management group or a subscription) |
+| `guest_owner` | a guest (`#EXT#`) owns such an app or group (high) |
 
 Entra roles (the place `/providers/microsoft.aadiam`) get only the four
-`entra_*` categories and `foreign_group`: no usage is recorded for them (`app/core/entra_findings.py`).
+`entra_*` categories, `foreign_group` and the owner categories: no usage is recorded for them (`app/core/entra_findings.py`).
+The four owner categories (`app/core/owner_findings.py`) apply only to grants
+at `access` or `keys`, use the owners from the newest check that read them,
+leave out break-glass identities as owners, and skip managed identities,
+Microsoft's apps and apps registered in another tenant. Their `evidence`
+lists the `owners` (`id`, `name`, `type`, `via`) and the app's `app_id`; the
+advice (rules `R17 owners` and `R18 guest-owner`, action `fix_owners`) gives
+`az ad app owner remove`, `az ad group owner remove` and, for a service
+principal, `az rest --method DELETE …/owners/<id>/$ref`.
 
 A finding's **fingerprint** is `sha256(scope | role GUID | principal |
 category)[:40]`: stable across checks, so a decision carries over.
@@ -138,12 +150,12 @@ completed check that recorded them.
 | `GET /scopes/assignments?scope=&source=direct\|inherited\|below` | Every current grant that applies here, with `counts` for all three sources, coverage, findings, `activated` / `until`, conditions and origin; `eligible` lists PIM eligibilities. |
 | `GET /scopes/findings?scope=&status=&severity=` | Findings on those grants, with `summary`. |
 | `GET /scopes/history?scope=&limit=50` | Checks rooted here or above, newest first; `is_current`, `previous_done_id` for a diff. |
-| `GET /scopes/capabilities?scope=&inside_limit=30` | *Who can do what*: each identity once, at its strongest level (below), with its grants, eligibilities, `keys_for`, `member_count`; `inside` lists child places that give someone more; `pim` summarises what PIM found. |
+| `GET /scopes/capabilities?scope=&inside_limit=30` | *Who can do what*: each identity once, at its strongest level (below), with its grants, eligibilities, `keys_for`, `member_count`, and for an app or group `owner_count` (null: unknown) and `owners_elsewhere` (an app registered in another tenant); `inside` lists child places that give someone more; `pim` summarises what PIM found. |
 | `GET /scopes/activity?scope=&most_active_limit=10` | Activity Log per subscription under the place, the owning check's coverage (attributed and unattributed callers), and the most active grants. |
 | `GET /principals?q=&principal_type=&limit=100` | Identity registry search, with `assignment_count`, `group_count`, `last_activity_at`. |
-| `GET /principals/{id}?members_limit=200` | The identity page: current grants (direct and through groups, Entra roles included), `eligible`, `groups`, `members` (groups), findings, `summary`, and `entra_activations` (Entra roles it activated through PIM, from the Entra ID audit log: `at`, `role_id`, `role_name`). 404 when no check has seen it. |
+| `GET /principals/{id}?members_limit=200` | The identity page: current grants (direct and through groups, Entra roles included), `eligible`, `groups`, `members` (groups), findings, `summary`, `entra_activations` (Entra roles it activated through PIM, from the Entra ID audit log: `at`, `role_id`, `role_name`), `owners` (an app or group: `owner_id`, `owner_name`, `owner_type`, `via` = `registration` / `service_principal` / `group`; null when unknown), `owners_elsewhere`, and `owns` (the apps and groups holding access it owns: `object_id`, `object_name`, `object_kind`, `via`, `level`, `scope`, `scope_name`, `grants`; filtered to what the caller may see). 404 when no check has seen it. |
 | `GET /principals/{id}/activity?days=90&recent_limit=25` | Its own Activity Log events, matched on `caller_oid` (a group: its members'). |
-| `GET /grants/{grant_id}` | One current grant in plain words: who, role, level and `powers`, where, origin, PIM, condition, coverage, findings, advice, and `review` when this month's round covers it. 404 when the latest check does not have it. |
+| `GET /grants/{grant_id}` | One current grant in plain words: who, role, level and `powers`, where, origin, PIM, condition, coverage, findings, advice, `owners` / `owners_elsewhere` for an app's or a group's grant, and `review` when this month's round covers it. 404 when the latest check does not have it. |
 | `GET /search?q=&limit=8` | ⌘K: places, identities and roles, exact → prefix → substring. Under 2 characters: empty. |
 | `POST /settings/registry/rebuild` (admin) | Re-derive the place and identity registries from every completed check. Idempotent. |
 
@@ -192,8 +204,11 @@ data actions; else null.
 ### `GET /changes?scope=&principal=&days=30&direction=all|given|removed&powerful_only=false&limit=100&offset=0`
 
 Who got or lost access, when, and who did it (`app/core/changes.py`),
-newest first. `given` covers `granted`, `eligible_added`, `member_added`;
-`removed` the opposite three. Returns `total`, `items` (one page), counts
+newest first. `given` covers `granted`, `eligible_added`, `member_added`,
+`owner_added`; `removed` the opposite four. For `owner_added` /
+`owner_removed`, the identity is the owner and `via_group_*` the app or
+group it owns; place, role and level are the strongest grant that app or
+group holds. Returns `total`, `items` (one page), counts
 `given` / `removed` / `powerful` before `direction` and `powerful_only`,
 and `weeks[]` per ISO week. `items[].source` is `activity_log` (exact, with
 author), `created_on` (Azure's or Entra's own record), `entra_audit` (someone

@@ -6,6 +6,27 @@ carries a version). `make release V=X.Y.Z` turns that heading into
 `## [X.Y.Z] - YYYY-MM-DD`, bumps the version and tags `vX.Y.Z` — see
 [README-MAKE.md](README-MAKE.md) and `scripts/release.sh`.
 
+## 2026-11-18
+
+- **Owners of apps and groups.** An app's owner can add a secret to it and
+  act as it; a group's owner decides its members. Neither showed as a grant.
+  Each check now reads the owners of the apps and groups that hold access
+  (Directory Readers is enough):
+  - *Who can do what* says on the row how many own it ("2 owners can act as
+    it", "1 owner decides its members"), beside the app or group, not counted
+    in the levels;
+  - an app's or group's page lists its **Owners**, and anyone's page what
+    they **Own**; the grant page names the owners;
+  - **Needs a look** flags apps and groups whose grant can change who has
+    access or get keys and passwords when people, another app or a guest own
+    them (break-glass identities left out), with the commands that remove an
+    owner;
+  - the **Changes** page shows owners added and removed, with who did it from
+    the Entra ID audit log (which now keeps owner entries too), including an
+    owner added and removed between two checks.
+- Owner history in the audit log starts with this version: a collection of
+  the last 30 days started by hand reads the earlier entries once.
+
 ## [0.35.1] - 2026-11-18
 
 - **Settings › Data kept: "Apply now" no longer drops unsaved changes.**
