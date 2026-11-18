@@ -308,12 +308,16 @@ def _decided_fingerprints(session: Session, now: datetime) -> set[str]:
             select(ReviewItem.grant_fingerprint)
             .join(ReviewRound, ReviewRound.id == ReviewItem.round_id)
             .where(
-                ReviewRound.period == period, ReviewItem.decision.in_(("remove", "change", "ask"))
+                ReviewRound.period == period,
+                ReviewItem.kind == "grant",
+                ReviewItem.decision.in_(("remove", "change", "ask")),
             )
         ).all()
     )
     return fps | set(
-        session.scalars(select(Todo.grant_fingerprint).where(Todo.status == "open")).all()
+        session.scalars(
+            select(Todo.grant_fingerprint).where(Todo.status == "open", Todo.kind == "grant")
+        ).all()
     )
 
 
@@ -362,8 +366,12 @@ def _reviews(session: Session, sc: ReportScope, ctx: AdviceContext, now: datetim
         subscriptions_with_responsible=len(subs) - len(without),
         without_responsible=without,
         rounds_this_period=len(current),
-        items_this_period=len(items),
-        decided_this_period=sum(1 for i in items if i.decision is not None),
+        items_this_period=sum(1 for i in items if i.kind == "grant"),
+        decided_this_period=sum(1 for i in items if i.kind == "grant" and i.decision is not None),
+        owners_this_period=sum(1 for i in items if i.kind == "owner"),
+        owners_decided=sum(1 for i in items if i.kind == "owner" and i.decision is not None),
+        secrets_this_period=sum(1 for i in items if i.kind == "secret"),
+        secrets_decided=sum(1 for i in items if i.kind == "secret" and i.decision is not None),
         last_period=last if earlier else None,
         last_period_on_time=on_time,
         todos_open=sum(1 for t in todos if t.status == "open"),

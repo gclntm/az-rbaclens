@@ -116,10 +116,15 @@ class ReviewRound(Base):
 
 
 class ReviewItem(Base):
-    """One grant in a round, with the reviewer's decision.
+    """One grant, owner or secret in a round, with the reviewer's decision.
 
     The grant is copied in (who, role, where) so a decided item still
-    reads well after the grant is gone from Azure.
+    reads well after the grant is gone from Azure. An owner item (0045) is
+    one owner of an app or group the findings flag: ``principal_*`` is the
+    owner, the grant columns the strongest grant the app or group holds, and
+    ``detail`` the app or group and the ways it is owned. A secret item is
+    one secret or certificate of such an app: ``principal_*`` is the app,
+    ``detail`` its kind, where it is and its dates.
     """
 
     __tablename__ = "review_items"
@@ -128,7 +133,15 @@ class ReviewItem(Base):
     round_id: Mapped[int] = mapped_column(
         ForeignKey("review_rounds.id", ondelete="CASCADE"), index=True, nullable=False
     )
+    # The grant reviewed, or the strongest grant an owner or secret reaches.
     grant_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    # grant | owner | secret (0045).
+    kind: Mapped[str] = mapped_column(String(10), nullable=False, server_default="grant")
+    # The grant id, ``owner:<object>:<owner>`` or ``secret:<object>:<via>:<key id>``.
+    subject_key: Mapped[str] = mapped_column(String(200), nullable=False)
+    detail: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql")
+    )
     scope: Mapped[str] = mapped_column(Text, nullable=False)
     scope_name: Mapped[str | None] = mapped_column(Text)
     scope_level: Mapped[str] = mapped_column(String(20), nullable=False)
@@ -161,7 +174,7 @@ class ReviewItem(Base):
     added_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
 
     __table_args__ = (
-        Index("uq_review_items_round_grant", "round_id", "grant_fingerprint", unique=True),
+        Index("uq_review_items_round_subject", "round_id", "subject_key", unique=True),
         CheckConstraint(
             "decision IS NULL OR decision IN ('keep', 'remove', 'change', 'ask')",
             name="ck_review_items_decision",
@@ -185,6 +198,12 @@ class Todo(Base):
         ForeignKey("review_items.id", ondelete="CASCADE"), unique=True, nullable=False
     )
     grant_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    # grant | owner | secret, and what the to-do is about (as on its review item, 0045).
+    kind: Mapped[str] = mapped_column(String(10), nullable=False, server_default="grant")
+    subject_key: Mapped[str] = mapped_column(String(200), nullable=False)
+    detail: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql")
+    )
     action: Mapped[str] = mapped_column(String(10), nullable=False)  # remove | change
     scope: Mapped[str] = mapped_column(Text, nullable=False)
     scope_name: Mapped[str | None] = mapped_column(Text)

@@ -1,7 +1,7 @@
 """Payloads of the monthly review endpoints."""
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -43,6 +43,12 @@ class ReviewRoundRead(BaseModel):
 
 class ReviewItemRead(BaseModel):
     id: int
+    # grant | owner | secret: an owner of an app or group, or an app's secret,
+    # reviewed like a grant; ``grant_id`` is then the strongest grant it reaches.
+    kind: str = "grant"
+    # Owner: object_id, object_name, object_kind, via, owner_id, owner_name, app_id.
+    # Secret: object_id, object_name, via, kind, key_id, start_at, end_at, app_id.
+    detail: dict[str, Any] | None = None
     grant_id: str
     scope: str
     scope_name: str | None

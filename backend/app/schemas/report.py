@@ -55,6 +55,11 @@ class ReportReviews(BaseModel):
     rounds_this_period: int
     items_this_period: int
     decided_this_period: int
+    # Owners of apps and groups, and app secrets, reviewed like grants (0045).
+    owners_this_period: int = 0
+    owners_decided: int = 0
+    secrets_this_period: int = 0
+    secrets_decided: int = 0
     last_period: str | None
     last_period_on_time: bool | None  # None: no earlier round
     todos_open: int

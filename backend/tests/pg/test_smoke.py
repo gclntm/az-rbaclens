@@ -44,6 +44,7 @@ from tests.test_request_guard import *  # noqa: F403
 from tests.test_responsible import *  # noqa: F403
 from tests.test_retention import *  # noqa: F403
 from tests.test_retention_settings import *  # noqa: F403
+from tests.test_review_subjects import *  # noqa: F403
 from tests.test_reviews import *  # noqa: F403
 from tests.test_role_coverage import *  # noqa: F403
 from tests.test_role_definitions import *  # noqa: F403

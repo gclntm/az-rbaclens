@@ -1,7 +1,7 @@
 """Payloads of the to-do endpoints (core/todos.py)."""
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -14,6 +14,9 @@ class TodoRead(BaseModel):
     period: str | None
     item_id: int
     grant_id: str
+    # grant | owner | secret (as on its review item), with the owner's or secret's facts.
+    kind: str = "grant"
+    detail: dict[str, Any] | None = None
     action: Literal["remove", "change"]
     scope: str
     scope_name: str | None

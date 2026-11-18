@@ -64,7 +64,7 @@ def _read(
     t: Todo, periods: dict[int, str], view: CurrentView | None, oid: str | None, admin: bool
 ) -> TodoRead:
     replacements: list[str] = []
-    if view is not None and t.action == "change":
+    if view is not None and t.action == "change" and t.kind == "grant":
         replacements = sorted(
             {
                 ra.role_name or "a role"
@@ -80,6 +80,8 @@ def _read(
         period=periods.get(t.round_id),
         item_id=t.item_id,
         grant_id=t.grant_fingerprint,
+        kind=t.kind,
+        detail=t.detail,
         action=t.action,
         scope=t.scope,
         scope_name=t.scope_name,

@@ -98,6 +98,12 @@ class ReviewDecision(Base):
     snoozed_until: Mapped[datetime | None] = mapped_column(UTCDateTime())
     actor: Mapped[str | None] = mapped_column(String(255))
     actor_name: Mapped[str | None] = mapped_column(String(500))
+    # Set when keeping an item in a monthly review marked the finding reviewed
+    # (0045): undoing that keep reopens the finding. A decision made by hand
+    # on the finding clears it.
+    review_item_id: Mapped[int | None] = mapped_column(
+        ForeignKey("review_items.id", ondelete="SET NULL")
+    )
     decided_at: Mapped[datetime] = mapped_column(
         UTCDateTime(),
         server_default=func.now(),

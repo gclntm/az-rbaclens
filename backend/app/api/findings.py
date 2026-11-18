@@ -177,6 +177,7 @@ def _write_decision(
     row.snoozed_until = payload.snoozed_until if payload.decision == "snoozed" else None
     row.actor = actor
     row.actor_name = actor_name
+    row.review_item_id = None  # decided by hand: a review's undo leaves it alone
     row.decided_at = datetime.now(UTC)
     return row
 

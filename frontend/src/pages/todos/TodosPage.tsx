@@ -12,7 +12,7 @@ import { useToast } from "@/components/Toast";
 import { useMe } from "@/hooks/useMe";
 import { formatDay, grantHref } from "@/pages/grants/grantUtils";
 import { principalHref, typeLabel } from "@/pages/principals/principalUtils";
-import { periodLabel } from "@/pages/reviews/reviewUtils";
+import { periodLabel, subjectLine } from "@/pages/reviews/reviewUtils";
 import { scopeHref, scopeLabel } from "@/pages/scopes/scopeUtils";
 import { Button } from "@/ui/untitled/components/base/buttons/button";
 import { cx } from "@/components/classes";
@@ -231,7 +231,7 @@ function TodoCard({ todo: t, onChanged }: { todo: Todo; onChanged: () => void })
         <span className={cx(WEIGHT, WEIGHT_TONE[accent])}>{t.action === "remove" ? "Remove" : "Change"}</span>
         <h2 className="m-0 min-w-0 flex-[1_1_240px] text-[0.9375rem] font-medium [overflow-wrap:anywhere]">
           <Link to={principalHref(t.principal_id)}>{t.principal_name ?? t.principal_id}</Link>{" "}
-          <span className={MUTED_CAPTION}>{typeLabel(t.principal_type)}</span> · {t.role_name ?? "a role"} on{" "}
+          <span className={MUTED_CAPTION}>{typeLabel(t.principal_type)}</span> · {subjectLine(t) ?? (t.role_name ?? "a role")} on{" "}
           <Link to={scopeHref(t.scope)}>{scopeLabel(t.scope, t.scope_name)}</Link>
         </h2>
         <span className={cx(CAPTION, t.overdue ? "text-error-primary" : "text-quaternary")}>{dueWords(t)}</span>

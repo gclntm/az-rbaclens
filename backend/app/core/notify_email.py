@@ -52,7 +52,22 @@ def compose(n: Notification, app_url: str) -> tuple[str, str]:
         url = html.escape(app_url.rstrip("/") + _p(n, "path"), quote=True)
         link = f'<p><a href="{url}">Open it in RBAC Lens</a></p>'
     note = f"<p>Note from the reviewer: “{e('note')}”</p>" if _p(n, "note") else ""
-    if n.kind == "ask":
+    if n.kind == "ask" and _p(n, "kind") == "owner" and (n.payload or {}).get("to_the_person"):
+        subject = f"Do you still need to own {_p(n, 'object')}?"
+        body = (
+            f"<p>{e('reviewer') or 'A reviewer'} is reviewing who can do what on {e('place')}. "
+            f"You own <strong>{e('object')}</strong>, which holds {e('role')} there: as an owner "
+            "you can add a secret to it, or choose its members, and so use that access. They ask "
+            f"whether you still need to own it.</p>{note}"
+            "<p>Please reply to the reviewer. RBAC Lens never changes Azure on its own.</p>"
+        )
+    elif n.kind == "ask" and _p(n, "kind") == "secret":
+        subject = f"Question about a secret of {_p(n, 'object')}"
+        body = (
+            f"<p>In the {e('period')} review, a question was marked about a secret or certificate "
+            f"of <strong>{e('object')}</strong> ({e('role')} on {e('place')}).</p>{note}"
+        )
+    elif n.kind == "ask":
         if (n.payload or {}).get("to_the_person"):
             subject = f"Do you still need {_p(n, 'role') or 'this access'} on {_p(n, 'place')}?"
             body = (

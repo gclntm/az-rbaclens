@@ -2,7 +2,19 @@ import { describe, expect, it } from "vitest";
 
 import type { ReviewItem } from "@/api/client";
 
-import { adviceSummary, bar, decided, dueText, matches, nextDecision, periodLabel, removeCommands, roundTitle } from "./reviewUtils";
+import {
+  adviceSummary,
+  bar,
+  decided,
+  decisionsFor,
+  dueText,
+  matches,
+  nextDecision,
+  periodLabel,
+  removeCommands,
+  roundTitle,
+  subjectLine,
+} from "./reviewUtils";
 
 function item(over: Partial<ReviewItem> = {}): ReviewItem {
   return {
@@ -64,5 +76,25 @@ describe("review words", () => {
     expect(dueText("2026-11-30T22:59:59Z", now)).toBe("due in 23 days");
     expect(dueText("2026-11-08T20:00:00Z", now)).toBe("due in 1 day");
     expect(dueText("2026-11-06T22:59:59Z", now)).toBe("2 days late");
+  });
+});
+
+describe("owners and secrets", () => {
+  it("say what an owner or secret item is about", () => {
+    expect(
+      subjectLine({
+        kind: "owner",
+        role_name: "Owner",
+        detail: { object_name: "sp-deploy", object_kind: "app", via: ["registration", "service_principal"] },
+      }),
+    ).toBe("owns the app sp-deploy (its app registration and its service principal), which holds Owner");
+    expect(
+      subjectLine({ kind: "secret", role_name: "Owner", detail: { object_name: "sp-deploy", via: "registration", kind: "secret", end_at: "2020-01-01T00:00:00Z" } }),
+    ).toMatch(/^Secret on the app registration of sp-deploy, expired .*; it holds Owner$/);
+    expect(subjectLine({ kind: "grant", role_name: "Owner" })).toBeNull();
+  });
+  it("offer no Change for an owner", () => {
+    expect(decisionsFor("owner")).toEqual(["keep", "remove", "ask"]);
+    expect(decisionsFor("secret")).toContain("change");
   });
 });

@@ -53,8 +53,12 @@ def create_for_round(
         if item.id in have:
             continue
         ra = view.by_grant_id.get(item.grant_fingerprint)
-        adv = advise_grant(ctx, ra) if ra is not None else None
-        if item.decision == "remove":
+        adv = advise_grant(ctx, ra) if ra is not None and item.kind == "grant" else None
+        if item.kind != "grant":
+            from app.core.review_subjects import commands as subject_commands
+
+            how, commands = subject_commands(item.kind, item.decision, item.detail)
+        elif item.decision == "remove":
             how = [
                 (
                     "Remove the grant with the command below, or in the portal: "
@@ -79,6 +83,9 @@ def create_for_round(
             round_id=rnd.id,
             item_id=item.id,
             grant_fingerprint=item.grant_fingerprint,
+            kind=item.kind,
+            subject_key=item.subject_key,
+            detail=item.detail,
             action=item.decision,
             scope=item.scope,
             scope_name=item.scope_name,
@@ -87,7 +94,9 @@ def create_for_round(
             principal_type=item.principal_type,
             role_name=item.role_name,
             note=item.note,
-            advice_rule=adv.rule if adv and adv.rule != "R00 fine" else None,
+            advice_rule=(adv.rule if adv and adv.rule != "R00 fine" else None)
+            if item.kind == "grant"
+            else item.suggested_rule,
             how=how,
             commands=commands,
             reviewer_id=rnd.reviewer_id,
@@ -103,11 +112,25 @@ def create_for_round(
 
 
 def close_done(session: Session, view: CurrentView, now: datetime | None = None) -> int:
-    """Mark open to-dos done when the latest checks no longer see their grant. The caller commits."""
+    """Mark open to-dos done when the latest checks no longer see their grant, owner
+    or secret (an owner or secret no check could read stays open). The caller commits."""
+    from app.core.owners import current_credentials, current_owners
+    from app.core.review_subjects import still_there
+
     now = now or datetime.now(UTC)
+    todos = session.scalars(select(Todo).where(Todo.status == "open")).all()
+    objects = {
+        ((t.detail or {}).get("object_id") or "").lower() for t in todos if t.kind != "grant"
+    }
+    owners = current_owners(session, objects) if objects else {}
+    creds = current_credentials(session, objects) if objects else {}
     closed = 0
-    for todo in session.scalars(select(Todo).where(Todo.status == "open")).all():
-        if todo.grant_fingerprint not in view.by_grant_id:
+    for todo in todos:
+        if todo.kind == "grant":
+            gone = todo.grant_fingerprint not in view.by_grant_id
+        else:
+            gone = still_there(todo.kind, todo.detail, owners, creds) is False
+        if gone:
             todo.status, todo.done_at = "done", now
             closed += 1
     return closed

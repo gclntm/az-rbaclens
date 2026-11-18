@@ -75,6 +75,8 @@ def _item(i: ReviewItem, names: dict[str, str | None]) -> ReviewItemRead:
     return ReviewItemRead(
         id=i.id,
         grant_id=i.grant_fingerprint,
+        kind=i.kind,
+        detail=i.detail,
         scope=i.scope,
         scope_name=i.scope_name,
         scope_level=i.scope_level,
@@ -216,6 +218,17 @@ def finish_review(
     return ReviewRoundRead(**_round(session, rnd, items, oid, admin))
 
 
+def _about(i: ReviewItem) -> str:
+    """The app or group an owner owns, or the secret, for the export."""
+    d = i.detail or {}
+    obj = d.get("object_name") or d.get("object_id") or ""
+    if i.kind == "owner":
+        return f"owner of {obj} ({', '.join(d.get('via') or [])})"
+    if i.kind == "secret":
+        return f"{d.get('kind') or 'secret'} on the {d.get('via') or ''} of {obj}, ends {d.get('end_at') or 'never'}"
+    return ""
+
+
 @router.get("/reviews/{round_id}/export")
 def export_review(
     round_id: int, session: Annotated[Session, Depends(get_session)]
@@ -237,6 +250,8 @@ def export_review(
             "removed_in_azure",
             "advice_rule",
             "command",
+            "item",
+            "about",
         ]
     )
     for i in _items(session, round_id):
@@ -253,6 +268,8 @@ def export_review(
                 "yes" if i.gone_at else "",
                 i.suggested_rule or "",
                 core.remove_command(i) if i.decision == "remove" else "",
+                i.kind,
+                _about(i),
             ]
         )
     name = f"review-{rnd.period}-{rnd.id}.csv"

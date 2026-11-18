@@ -125,6 +125,22 @@ def access_rights(r: ReportReviews) -> ReportControl:
             f"{r.subscriptions_with_responsible} of {_plural(r.subscriptions, 'subscription')} have someone responsible.",
             on_time,
             f"{r.decided_this_period} of {_plural(r.items_this_period, 'grant')} decided in this month's reviews.",
+            *(
+                [
+                    f"{r.owners_decided} of {_plural(r.owners_this_period, 'owner')} of apps and "
+                    "groups with powerful access decided in this month's reviews."
+                ]
+                if r.owners_this_period
+                else []
+            ),
+            *(
+                [
+                    f"{r.secrets_decided} of {_plural(r.secrets_this_period, 'app secret')} "
+                    "flagged as long-lived or expired decided in this month's reviews (5.17)."
+                ]
+                if r.secrets_this_period
+                else []
+            ),
             f"{_plural(r.todos_open, 'change')} to make in Azure, {r.todos_overdue} overdue.",
         ],
     )

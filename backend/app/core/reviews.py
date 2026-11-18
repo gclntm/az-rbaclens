@@ -105,13 +105,27 @@ def route_grants(
     return out
 
 
+def _away_from(
+    route: Route, person_id: str, resolved: dict[str, Resolved], scopes: dict[str, Any]
+) -> tuple[str | None, str | None]:
+    """The route's round, moved up while its reviewer is ``person_id`` (no self-review)."""
+    r = resolved.get(route.round_scope) if route.round_scope else None
+    moved = route.moved_from
+    while r is not None and r.person.person_id == person_id:
+        moved = moved or r.from_scope
+        parent = scopes[r.from_scope][2]
+        r = resolved.get(parent) if parent else None
+    return (r.from_scope if r else None), moved
+
+
 # ---- opening and keeping rounds current ----------------------------------------------------
 
 
 def _carried(session: Session, period: str) -> dict[str, ReviewItem]:
-    """Grants kept last month and unchanged since, by fingerprint."""
+    """Grants, owners and secrets kept last month and unchanged since, by subject key
+    (a secret has no changes: the same key is the same secret)."""
     kept = {
-        i.grant_fingerprint: i
+        i.subject_key: i
         for i in session.scalars(
             select(ReviewItem)
             .join(ReviewRound, ReviewRound.id == ReviewItem.round_id)
@@ -170,7 +184,7 @@ def open_and_sync(session: Session, now: datetime | None = None) -> dict[str, in
         for r in session.scalars(select(ReviewRound).where(ReviewRound.period == period)).all()
     }
     existing = {
-        (i.round_id, i.grant_fingerprint): i
+        (i.round_id, i.subject_key): i
         for i in session.scalars(
             select(ReviewItem).where(
                 ReviewItem.round_id.in_([r.id for r in rounds.values()] or [-1])
@@ -234,6 +248,8 @@ def open_and_sync(session: Session, now: datetime | None = None) -> dict[str, in
         item = ReviewItem(
             round_id=rnd.id,
             grant_fingerprint=fp,
+            kind="grant",
+            subject_key=fp,
             scope=ra.scope.lower(),
             scope_name=ra.scope_name,
             scope_level=ra.scope_level,
@@ -258,6 +274,9 @@ def open_and_sync(session: Session, now: datetime | None = None) -> dict[str, in
         existing[key] = item
         stats["items_added"] += 1
 
+    stats["items_added"] += _sync_subjects(
+        session, view, routes, resolved, scopes, round_for, existing, present, carried, now
+    )
     for key, item in existing.items():
         if key not in present and item.gone_at is None:
             item.gone_at = now
@@ -275,6 +294,79 @@ def open_and_sync(session: Session, now: datetime | None = None) -> dict[str, in
     stats["notifications"] += remind_overdue(session, now)
     session.commit()
     return stats
+
+
+def _sync_subjects(
+    session: Session,
+    view: CurrentView,
+    routes: list[Route],
+    resolved: dict[str, Resolved],
+    scopes: dict[str, Any],
+    round_for: Any,
+    existing: dict[tuple[int, str], ReviewItem],
+    present: set[tuple[int, str]],
+    carried: dict[str, ReviewItem],
+    now: datetime,
+) -> int:
+    """Owner and secret items (core/review_subjects.py), like grants: added to the round
+    of their strongest grant, suggestions refreshed while undecided. Returns how many
+    were added."""
+    from app.core.review_subjects import subjects
+
+    by_ra = {r.ra.id: r for r in routes}
+    added = 0
+    for s in subjects(view):
+        ra = s.strongest(view)
+        route = by_ra.get(ra.id)
+        if route is None:
+            continue
+        round_scope, moved = (
+            _away_from(route, s.principal_id, resolved, scopes)
+            if s.kind == "owner"
+            else (route.round_scope, route.moved_from)
+        )
+        rnd = round_for(round_scope)
+        key = (rnd.id, s.key)
+        present.add(key)
+        suggested = s.suggestion()
+        item = existing.get(key)
+        if item is not None:
+            item.gone_at = None
+            if item.decision is None and rnd.finished_at is None:
+                item.detail = s.detail
+                item.suggested, item.suggested_rule, item.suggested_title = suggested
+            continue
+        if rnd.finished_at is not None:
+            continue
+        item = ReviewItem(
+            round_id=rnd.id,
+            grant_fingerprint=grant_id(ra),
+            kind=s.kind,
+            subject_key=s.key,
+            detail=s.detail,
+            scope=ra.scope.lower(),
+            scope_name=ra.scope_name,
+            scope_level=ra.scope_level,
+            principal_id=s.principal_id,
+            principal_name=s.principal_name,
+            principal_type=s.principal_type,
+            role_definition_id=ra.role_definition_id,
+            role_name=ra.role_name,
+            level=view.capability_of(ra).level,
+            moved_from_scope=moved,
+            added_at=now,
+        )
+        item.suggested, item.suggested_rule, item.suggested_title = suggested
+        prev = carried.get(s.key)
+        if prev is not None:
+            item.decision = "keep"
+            item.carried_from_round_id = prev.round_id
+            item.decided_by_name = "kept last month, unchanged since"
+            item.decided_at = now
+        session.add(item)
+        existing[key] = item
+        added += 1
+    return added
 
 
 def _suggest(item: ReviewItem, ctx: AdviceContext, ra: RoleAssignment) -> None:
@@ -353,6 +445,8 @@ def _item_payload(item: ReviewItem, rnd: ReviewRound) -> dict[str, Any]:
         "reviewer": rnd.reviewer_name,
         "path": f"/reviews/{rnd.id}",
         "grant_path": f"/grants/{item.grant_fingerprint}",
+        "kind": item.kind,
+        "object": (item.detail or {}).get("object_name") or (item.detail or {}).get("object_id"),
     }
 
 
@@ -400,13 +494,22 @@ def decide(
     """Record (or clear, with ``None``) a decision. The caller commits.
 
     Keeping a grant marks its open findings reviewed, so it leaves
-    "Needs a look" too.
+    "Needs a look" too; undoing the keep (or changing it) reopens them,
+    unless someone decided on a finding by hand since.
     """
     if decision is not None and decision not in DECISIONS:
         raise ValueError(f"decision must be one of {', '.join(DECISIONS)}")
+    if decision == "change" and item.kind == "owner":
+        raise ValueError("an owner is kept, removed, or asked about: there is nothing to change")
     if decision == "change" and not (note or "").strip():
-        raise ValueError("say what to change: PIM, a smaller role, another place…")
+        raise ValueError(
+            "say how to replace it: a secret valid a year, or sign-in without a secret…"
+            if item.kind == "secret"
+            else "say what to change: PIM, a smaller role, another place…"
+        )
     now = now or datetime.now(UTC)
+    if item.decision == "keep" and decision != "keep":
+        _unreview_findings(session, item)
     item.decision = decision
     item.note = note
     item.decided_by = actor_id
@@ -435,10 +538,12 @@ def _review_findings(
     session: Session, item: ReviewItem, actor_id: str | None, actor_name: str | None
 ) -> None:
     view = current_view(session)
-    ra = view.by_grant_id.get(item.grant_fingerprint)
-    if ra is None:
-        return
-    for ref in view.findings_by_ra.get(ra.id, ()):
+    if item.kind != "grant":
+        refs = _subject_findings(session, view, item)
+    else:
+        ra = view.by_grant_id.get(item.grant_fingerprint)
+        refs = list(view.findings_by_ra.get(ra.id, ())) if ra is not None else []
+    for ref in refs:
         if ref.status != "open":
             continue
         row = session.get(ReviewDecision, ref.finding.fingerprint) or ReviewDecision(
@@ -449,7 +554,75 @@ def _review_findings(
         row.snoozed_until = None
         row.actor = actor_id
         row.actor_name = actor_name
+        row.review_item_id = item.id
         session.add(row)
+
+
+def _unreview_findings(session: Session, item: ReviewItem) -> None:
+    """Reopen the findings a "keep" on ``item`` marked reviewed. For an owner or
+    secret, also those it completed with other kept items: they no longer hold."""
+    fingerprints = set(
+        session.scalars(
+            select(ReviewDecision.fingerprint).where(ReviewDecision.review_item_id == item.id)
+        ).all()
+    )
+    if item.kind != "grant":
+        listed = {
+            ref.finding.fingerprint
+            for ref in _subject_findings(session, current_view(session), item, all_kept=False)
+        }
+        fingerprints |= set(
+            session.scalars(
+                select(ReviewDecision.fingerprint)
+                .where(ReviewDecision.fingerprint.in_(listed or {""}))
+                .where(ReviewDecision.review_item_id.is_not(None))
+            ).all()
+        )
+    for fp in fingerprints:
+        row = session.get(ReviewDecision, fp)
+        if row is not None:
+            session.delete(row)
+
+
+def _subject_findings(
+    session: Session, view: CurrentView, item: ReviewItem, all_kept: bool = True
+) -> list:
+    """The owner or secret findings that list this item's owner (or secret): with
+    ``all_kept``, only when every owner (or secret) they list is kept in the round."""
+    from app.core.review_subjects import (
+        OWNER_CATEGORIES,
+        SECRET_CATEGORIES,
+        owner_key,
+        secret_key,
+    )
+
+    obj = ((item.detail or {}).get("object_id") or "").lower()
+    kept = {
+        k
+        for (k,) in session.execute(
+            select(ReviewItem.subject_key)
+            .where(ReviewItem.round_id == item.round_id)
+            .where(ReviewItem.decision == "keep")
+        ).all()
+    } | {item.subject_key}
+    out = []
+    for ra in view.ras:
+        if ra.principal_id.lower() != obj:
+            continue
+        for ref in view.findings_by_ra.get(ra.id, ()):
+            ev = ref.finding.evidence or {}
+            if item.kind == "owner" and ref.finding.category in OWNER_CATEGORIES:
+                keys = {owner_key(obj, o.get("id") or "") for o in ev.get("owners") or []}
+            elif item.kind == "secret" and ref.finding.category in SECRET_CATEGORIES:
+                keys = {
+                    secret_key(obj, c.get("via") or "", c.get("key_id") or "")
+                    for c in ev.get("credentials") or []
+                }
+            else:
+                continue
+            if item.subject_key in keys and (not all_kept or keys <= kept):
+                out.append(ref)
+    return out
 
 
 def accept_advice(
@@ -476,6 +649,10 @@ def accept_advice(
 
 def remove_command(item: ReviewItem) -> str:
     """A ready-to-run Azure CLI command; RBAC Lens never runs it."""
+    if item.kind != "grant":
+        from app.core.review_subjects import commands
+
+        return "\n".join(commands(item.kind, "remove", item.detail)[1])
     if item.scope == ENTRA_PLACE:
         return entra_delete_command(
             item.azure_id, item.principal_id, item.role_name or item.role_definition_id

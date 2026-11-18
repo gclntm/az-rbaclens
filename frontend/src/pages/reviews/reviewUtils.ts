@@ -1,4 +1,4 @@
-import type { ReviewDecisionKind, ReviewItem, ReviewRound } from "@/api/client";
+import type { ReviewDecisionKind, ReviewItem, ReviewRound, SubjectDetail, SubjectKind } from "@/api/client";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -82,7 +82,7 @@ export function removeCommands(items: ReviewItem[]): string {
     .filter((i) => i.decision === "remove" && !i.gone_at)
     .map(
       (i) =>
-        `# ${commentText(`${i.principal_name ?? i.principal_id} · ${i.role_name ?? "role"} on ${i.scope_name ?? i.scope}`)}\n${i.remove_command}`,
+        `# ${commentText(`${i.principal_name ?? i.principal_id} · ${subjectLine(i) ?? `${i.role_name ?? "role"} on ${i.scope_name ?? i.scope}`}`)}\n${i.remove_command}`,
     )
     .join("\n");
 }
@@ -98,3 +98,43 @@ export function dueText(dueAt: string, now: Date = new Date()): string {
   if (days === 0) return "due today";
   return `due in ${days} ${days === 1 ? "day" : "days"}`;
 }
+
+const VIA_WORD: Record<string, string> = {
+  registration: "its app registration",
+  service_principal: "its service principal",
+  group: "the group",
+};
+
+/** What an owner or secret item is about, in a line; ``null`` for a grant. */
+export function subjectLine(x: { kind?: SubjectKind; detail?: SubjectDetail | null; role_name: string | null }): string | null {
+  const d = x.detail ?? {};
+  const object = d.object_name ?? d.object_id ?? "an app";
+  if (x.kind === "owner") {
+    const vias = (Array.isArray(d.via) ? d.via : d.via ? [d.via] : []).map((v) => VIA_WORD[v] ?? v);
+    const what = d.object_kind === "group" ? "group" : "app";
+    return `owns the ${what} ${object}${vias.length ? ` (${vias.join(" and ")})` : ""}, which holds ${x.role_name ?? "a role"}`;
+  }
+  if (x.kind === "secret") {
+    const kind = d.kind === "certificate" ? "Certificate" : "Secret";
+    const where = d.via === "service_principal" ? "service principal" : "app registration";
+    const end = d.end_at ? new Date(d.end_at) : null;
+    const when = !end
+      ? "no end date"
+      : end.getTime() < Date.now()
+        ? `expired ${end.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}`
+        : `valid until ${end.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}`;
+    return `${kind} on the ${where} of ${object}, ${when}; it holds ${x.role_name ?? "a role"}`;
+  }
+  return null;
+}
+
+/** The decisions an item can take: an owner stays, goes, or is asked about. */
+export function decisionsFor(kind: SubjectKind | undefined): ReviewDecisionKind[] {
+  return kind === "owner" ? ["keep", "remove", "ask"] : ["keep", "remove", "change", "ask"];
+}
+
+export const KIND_SECTIONS: { kind: SubjectKind; title: string }[] = [
+  { kind: "grant", title: "Grants" },
+  { kind: "owner", title: "Owners of apps and groups" },
+  { kind: "secret", title: "Secrets and certificates" },
+];

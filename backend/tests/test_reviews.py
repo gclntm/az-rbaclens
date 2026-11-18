@@ -137,9 +137,27 @@ def test_keeping_a_grant_marks_its_findings_reviewed(app_with_sqlite: TestClient
     [item] = _detail(app_with_sqlite, rid)[
         "items"
     ]  # sp-1 Owner on the MG: a "powerful role high up" finding
-    app_with_sqlite.put(f"/api/reviews/{rid}/items/{item['id']}", json={"decision": "keep"})
+    put = f"/api/reviews/{rid}/items/{item['id']}"
+    app_with_sqlite.put(put, json={"decision": "keep"})
     with SessionLocal() as db:
         assert {d.decision for d in db.query(ReviewDecision).all()} == {"reviewed"}
+        fingerprint = db.query(ReviewDecision).one().fingerprint
+
+    # Undoing the keep reopens what it marked.
+    app_with_sqlite.put(put, json={"decision": None})
+    with SessionLocal() as db:
+        assert db.query(ReviewDecision).count() == 0
+
+    # A decision made by hand on the finding since stays.
+    app_with_sqlite.put(put, json={"decision": "keep"})
+    r = app_with_sqlite.put(
+        f"/api/iam-access/findings/{fingerprint}/decision",
+        json={"decision": "accepted_risk", "note": "Owned by the platform team"},
+    )
+    assert r.status_code == 200
+    app_with_sqlite.put(put, json={"decision": "remove"})
+    with SessionLocal() as db:
+        assert {d.decision for d in db.query(ReviewDecision).all()} == {"accepted_risk"}
 
 
 def test_kept_last_month_and_unchanged_starts_as_kept(app_with_sqlite: TestClient):

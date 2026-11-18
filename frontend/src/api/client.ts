@@ -1329,9 +1329,27 @@ export type ReviewRound = {
   can_decide: boolean;
 };
 
+/** A review item or to-do is a grant, an owner of an app or group, or an app's secret. */
+export type SubjectKind = "grant" | "owner" | "secret";
+/** Owner: object_id, object_name, object_kind, via, owner_id, owner_name, app_id.
+ *  Secret: object_id, object_name, via, kind, key_id, start_at, end_at, app_id. */
+export type SubjectDetail = {
+  object_id?: string;
+  object_name?: string | null;
+  object_kind?: "app" | "group";
+  via?: string | string[];
+  kind?: "secret" | "certificate";
+  start_at?: string | null;
+  end_at?: string | null;
+  app_id?: string | null;
+};
+
 export type ReviewItem = {
   id: number;
+  /** The grant reviewed, or the strongest grant an owner or secret reaches. */
   grant_id: string;
+  kind?: SubjectKind;
+  detail?: SubjectDetail | null;
   scope: string;
   scope_name: string | null;
   scope_level: ScopeLevel;
@@ -1369,6 +1387,8 @@ export type Todo = {
   period: string | null;
   item_id: number;
   grant_id: string;
+  kind?: SubjectKind;
+  detail?: SubjectDetail | null;
   action: "remove" | "change";
   scope: string;
   scope_name: string | null;

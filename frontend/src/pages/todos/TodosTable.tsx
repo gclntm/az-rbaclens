@@ -42,7 +42,9 @@ export default function TodosTable({ rows }: { rows: Todo[] }) {
                   <span className={CELL_SUB}>{typeLabel(t.principal_type)}</span>
                 </span>
               </td>
-              <td className={CELL_ROLE}>{t.role_name ?? "—"}</td>
+              <td className={CELL_ROLE}>
+                {t.kind === "owner" ? `owner of ${t.detail?.object_name ?? t.detail?.object_id ?? "an app"}` : t.kind === "secret" ? `${t.detail?.kind ?? "secret"} of ${t.detail?.object_name ?? t.detail?.object_id ?? "an app"}` : (t.role_name ?? "—")}
+              </td>
               <td>
                 <Link to={scopeHref(t.scope)}>{scopeLabel(t.scope, t.scope_name)}</Link>
               </td>

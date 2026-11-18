@@ -62,7 +62,7 @@ def _review_ref(
     row = session.execute(
         select(ReviewItem, ReviewRound)
         .join(ReviewRound, ReviewRound.id == ReviewItem.round_id)
-        .where(ReviewRound.period == period, ReviewItem.grant_fingerprint == fingerprint)
+        .where(ReviewRound.period == period, ReviewItem.subject_key == fingerprint)
         .order_by(ReviewRound.id.desc())
         .limit(1)
     ).first()

@@ -39,8 +39,11 @@ import {
   type ItemFilter,
   matches,
   nextDecision,
+  decisionsFor,
+  KIND_SECTIONS,
   removeCommands,
   roundPlace,
+  subjectLine,
   roundTitle,
 } from "./reviewUtils";
 
@@ -282,9 +285,23 @@ export default function ReviewPage() {
           {shown.length === 0 ? (
             <p className={cx("my-[1em]", CARD, EMPTY_STATE, "px-0")}>{filter === "open" ? "Nothing left to decide here." : "Nothing in this list."}</p>
           ) : (
-            shown.map((i) => (
-              <ItemCard key={i.id} item={i} canDecide={data.can_decide} busy={busy === i.id} onDecide={decide} />
-            ))
+            KIND_SECTIONS.map(({ kind, title }) => {
+              const these = shown.filter((i) => (i.kind ?? "grant") === kind);
+              if (these.length === 0) return null;
+              const sectioned = shown.some((i) => (i.kind ?? "grant") !== "grant");
+              return (
+                <section key={kind} className="flex flex-col gap-4" aria-label={title}>
+                  {sectioned && (
+                    <h2 className="m-0 text-[0.9375rem] font-bold">
+                      {title} <span className="font-normal text-tertiary">{these.length}</span>
+                    </h2>
+                  )}
+                  {these.map((i) => (
+                    <ItemCard key={i.id} item={i} canDecide={data.can_decide} busy={busy === i.id} onDecide={decide} />
+                  ))}
+                </section>
+              );
+            })
           )}
         </div>
         <aside className="flex flex-col gap-4">
@@ -380,19 +397,23 @@ function ItemCard({
           {i.principal_name ?? i.principal_id}
         </Link>
         <span className={MUTED_CAPTION}>{typeLabel(i.principal_type)}</span>
+        {i.kind === "owner" && <span className={cx(BADGE, BADGE_TONE.yours)}>owner</span>}
+        {i.kind === "secret" && <span className={cx(BADGE, BADGE_TONE.yours)}>{i.detail?.kind ?? "secret"}</span>}
         <span className={cx(LEVEL_PILL, WHO_ACCENT[i.level])}>{LEVEL_INFO[i.level].title}</span>
         {i.moved_from_scope && <span className={cx(BADGE, BADGE_TONE.yours)}>their own place</span>}
         {i.carried && <span className={cx(BADGE, BADGE_TONE.done)}>kept last month</span>}
         {gone && <span className={cx(BADGE, BADGE_TONE.done)}>removed in Azure</span>}
       </div>
       <p className="m-0 [overflow-wrap:anywhere]">
-        {i.role_name ?? "A role"} on <Link to={scopeHref(i.scope)}>{scopeLabel(i.scope, i.scope_name)}</Link> ·{" "}
+        {subjectLine(i) ?? (i.role_name ?? "A role")} on{" "}
+        <Link to={scopeHref(i.scope)}>{scopeLabel(i.scope, i.scope_name)}</Link> ·{" "}
         <Link to={grantHref(i.grant_id)}>details</Link>
       </p>
       {i.moved_from_scope && (
         <p className={cx("my-[1em]", MUTED_CAPTION)}>
-          The person responsible for {i.moved_from_name ?? i.moved_from_scope} holds this access, so it comes to you
-          rather than to them.
+          {i.kind === "owner"
+            ? `The person responsible for ${i.moved_from_name ?? i.moved_from_scope} is this owner, so it comes to you rather than to them.`
+            : `The person responsible for ${i.moved_from_name ?? i.moved_from_scope} holds this access, so it comes to you rather than to them.`}
         </p>
       )}
       {isGroup && (
@@ -437,11 +458,11 @@ function ItemCard({
           {i.ask_remind_at && ` · reminder ${formatDay(i.ask_remind_at)}`}
         </p>
       )}
-      {i.decision === "remove" && <code className="block rounded-[4px] bg-(--bg-input) px-2 py-1 text-[0.75rem] [overflow-wrap:anywhere]">{i.remove_command}</code>}
+      {i.decision === "remove" && <code className="block whitespace-pre-wrap rounded-[4px] bg-(--bg-input) px-2 py-1 text-[0.75rem] [overflow-wrap:anywhere]">{i.remove_command}</code>}
 
       {canDecide && !gone && (
         <div className={cx(FORM_ROW, "mt-1")}>
-          {(["keep", "remove", "change", "ask"] as ReviewDecisionKind[]).map((d) => (
+          {decisionsFor(i.kind).map((d) => (
             <button
               key={d}
               type="button"
@@ -469,7 +490,13 @@ function ItemCard({
           <input
             autoFocus
             className={cx("tracking-normal", NOTE_INPUT)}
-            placeholder={asking === "change" ? "What to change: PIM, a smaller role, another place…" : "What to ask (optional)"}
+            placeholder={
+              asking === "change"
+                ? i.kind === "secret"
+                  ? "How to replace it: a secret valid a year, sign-in without a secret…"
+                  : "What to change: PIM, a smaller role, another place…"
+                : "What to ask (optional)"
+            }
             aria-label={asking === "change" ? "What to change" : "What to ask"}
             value={note}
             maxLength={2000}
