@@ -20,7 +20,7 @@
 # RBACLENS_PORT (default 8080), TZ (e.g. Europe/Paris; the daily check runs at
 # 06:00 in it), EXTRA_SERVER_NAMES (host names besides localhost).
 # Upgrade: change RBACLENS_VERSION, then `docker compose up -d`; the database
-# migrates on start. Back up first:
+# migrates on start, and the next check and collection fill in the rest. Back up first:
 #   docker compose exec -T db pg_dump -U rbaclens -Fc rbaclens > rbaclens.dump
 #
 # Building from source, the test stack, automatic backups and email are in

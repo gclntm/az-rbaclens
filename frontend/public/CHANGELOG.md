@@ -6,6 +6,21 @@ carries a version). `make release V=X.Y.Z` turns that heading into
 `## [X.Y.Z] - YYYY-MM-DD`, bumps the version and tags `vX.Y.Z` — see
 [README-MAKE.md](README-MAKE.md) and `scripts/release.sh`.
 
+## 2026-11-18
+
+- **Entra role changes come straight from the Entra ID audit log**, not
+  only from comparing two daily checks. The Changes page now shows what
+  happened before the first check that read Entra ID (as far back as Entra
+  keeps it, 30 days on P1/P2), and a role given and removed between two
+  checks. One action recorded twice, by PIM and by the directory, is one
+  change, credited to the person; PIM activations stay out.
+- **Nothing to run by hand after an upgrade or a first install:** each
+  hourly collection of the audit log fills in the Entra role changes from
+  every entry on file, not only its own hour. The README's first steps, the
+  feature guide and the upgrade notes now say what the Changes page covers
+  and where its history starts, and the feature guide what deleting a
+  check, a collection run or a schedule keeps.
+
 ## [0.34.0] - 2026-11-18
 
 - **Entra ID is a place of its own**, at the top of Places: who holds which

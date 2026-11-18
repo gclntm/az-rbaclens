@@ -182,8 +182,20 @@ nested inside it in both checks (named in `direct_group_name`), between the
 two checks.
 A whole group nested into another stays `daily_check`: its entry names the
 nested group, not the members it brings. `subject_key` is the grant id for grants and
-eligibilities, `member:<group>:<member>` for memberships. The feed is
-filled once from the checks on file when it is empty (at startup).
+eligibilities, `member:<group>:<member>` for memberships.
+
+Entra role changes also come straight from the Entra ID audit log, after
+each collection (`record_entra_audit_changes`): rows with `source =
+'entra_audit'` and no `first_seen_scan_id`, for what no check saw (before
+the first check that read Entra ID, or given and removed between two
+checks). It only adds what is missing: one action recorded by PIM and by
+the directory is one row, and a change a check reports is not added twice.
+
+The feed is filled once from the checks on file when it is empty (at
+startup), then from the audit log. Such a rebuild only recovers what the
+checks and audit entries on file still cover: checks are pruned to the
+newest `SNAPSHOT_KEEP_PER_SCOPE` per place while the feed keeps
+`CHANGE_RETENTION_DAYS`, so emptying the feed loses older history.
 
 ## Activity Log
 
@@ -348,7 +360,8 @@ audit_events         id, occurred_at (IX), actor (IX), actor_name, method, path,
 then every `RETENTION_INTERVAL_HOURS` (24), and on **Apply now** under
 Settings › Database. `0` keeps everything. These are backend settings
 (`app/core/config.py`); see [deployment.md](deployment.md#backend-settings)
-for how to change them.
+for how to change them. What deleting a check, a collection run or a
+schedule keeps, in plain words: [iam-access.md](iam-access.md#what-deleting-keeps).
 
 | Setting | Default | Deletes |
 |---|---|---|

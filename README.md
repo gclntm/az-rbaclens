@@ -77,7 +77,9 @@ it, and schedules keep it current:
 3. **Let the schedules start.** After the first check, RBAC Lens adds a
    daily check of the tenant root at 06:00 (`TZ`, `DEFAULT_CHECK_HOUR`) and
    an hourly Activity Log collection per subscription and for the
-   management groups. Nothing else is needed day to day.
+   management groups. If the identity can read the Entra ID audit log
+   (AuditLog.Read.All), an hourly collection of it is added too. Nothing
+   else is needed day to day.
 4. **Start the analysis.** As soon as the check is done:
    - **Home**: what needs a look and the latest changes;
    - **Places**: for each place, *Who can do what* at five levels, from
@@ -87,7 +89,13 @@ it, and schedules keep it current:
    - **Needs a look**: findings such as a powerful role given high up, an
      identity that no longer exists, group members unknown, new since the
      previous check;
-   - **People & apps**: everything one identity can do, and where.
+   - **People & apps**: everything one identity can do, and where;
+   - **Changes**: who got or lost access, and who did it. The first check
+     is the starting point: what is there is how things were. Each daily
+     check then records what changed since the previous one, and the
+     history is kept 365 days, so nothing is missed between two visits.
+     Entra role changes also come from the Entra ID audit log, as far back
+     as Entra keeps it (30 days on P1/P2), before the first check too.
 
    Usage findings (no change in the window, allows far more than was used)
    and activity with no visible grant fill in once a subscription's

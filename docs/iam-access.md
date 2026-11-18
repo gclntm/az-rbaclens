@@ -200,7 +200,12 @@ grant drawer's command removes an Entra role through Microsoft Graph
 
 With the [Entra ID audit log](#entra-id-audit-log) collected, the Changes
 page says who gave or removed an Entra role, directly or through PIM, and an
-identity's page lists the Entra roles it **activated through PIM**. An
+identity's page lists the Entra roles it **activated through PIM**. Entra
+role changes come straight from the audit log too, not only from comparing
+two checks: what happened before the first check that read Entra ID (as far
+back as Entra keeps it), and a role given and removed between two daily
+checks, are on the Changes page. One action recorded twice, by PIM and by
+the directory, is one change, credited to the person. An
 activation is use of an eligibility, not a change of who has access: it is
 never in the changes feed, for Entra or Azure roles.
 
@@ -257,11 +262,22 @@ stays reviewed.
 - **To do** (`/todos`): each remove or change decision of a finished review,
   with the commands to run. RBAC Lens never changes Azure; the next daily
   check closes the to-do when the grant is gone.
-- **Changes** (`/changes`): who got or lost access, when and who did it,
-  from the Activity Log when it has the event, else from Azure's own
-  record or the first check that saw it. Someone joining or leaving a
-  group gets its author from the Entra ID audit log when RBAC Lens can read
-  it (see below).
+- **Changes** (`/changes`): who got or lost access, when and who did it.
+  Each daily check records what changed since the previous one, and the
+  history is kept 365 days (`CHANGE_RETENTION_DAYS`): nothing is missed
+  between two visits. The first check is the starting point. What it
+  covers:
+
+  | | Azure roles | Entra roles | Group members |
+  |---|---|---|---|
+  | Changes after the first check | yes | yes | yes, for groups that hold access |
+  | Changes from before the first check | no: the starting point | yes, as far back as the Entra ID audit log goes (30 days on P1/P2) | no |
+  | A grant given and removed between two checks | no; the Activity Log page has both events | yes, from the audit log | no |
+  | Who did it | the Activity Log, else Azure's own record | the Entra ID audit log | the Entra ID audit log |
+
+  Without the event, a change is "first seen" by the check, with no
+  author. The audit log's group entries only name the author of what a
+  check found; they don't make changes of their own.
 - **Report** (`/report`): an assessment of the tenant or one place against
   ISO/IEC 27001:2022 Annex A, printable, with a CSV annex. Admins can save
   it as a baseline for later reports.
@@ -351,6 +367,42 @@ what was added and removed, with the count kept.
 | **Audit log** | Every change made through the API. |
 | **Database** | Table and index sizes, VACUUM / ANALYZE / REINDEX, retention, and *Delete old checks*. |
 | **Changelog** | What changed in each release. |
+
+## What deleting keeps
+
+A **check** is a photo of who has which access on one day. Deleting one
+(a run in **Recent checks and collections** on Data & schedules, or
+*Delete old checks* on Settings › Database) deletes that photo: the
+grants, PIM eligibilities and group members it found, and its findings.
+With it go its CSV export, the comparisons with it ("What changed since
+#N"), and its line in a place's Changes tab. The check a place shows now
+is never deleted (only the API's `force` option can).
+
+Everything else is stored on its own and stays:
+
+| What | Kept for |
+|---|---|
+| Activity Log events (who did what in Azure) | 120 days (`EVENT_RETENTION_DAYS`) |
+| Entra ID audit log entries (group members, Entra roles, PIM activations) | 120 days, like the Activity Log |
+| The Changes page (who got or lost access) | 365 days (`CHANGE_RETENTION_DAYS`) |
+| Review decisions, to-dos, saved reports, the audit log | not deleted with checks |
+
+RBAC Lens deletes old checks by itself: it keeps the newest 6 completed
+checks per place (`SNAPSHOT_KEEP_PER_SCOPE`) and failed ones 7 days. With
+one daily check of the tenant root, checks older than about 6 days are
+already gone.
+
+A **collection** run (of the Activity Log or the Entra ID audit log) is
+only a record: which window it read, when, and whether it worked.
+Deleting it, or letting retention delete it after 30 days
+(`PULL_RECORD_RETENTION_DAYS`), keeps every event it collected. How far
+each log is collected is kept on its schedule, so the next run carries on
+from there.
+
+Deleting a **schedule** stops what it runs and keeps everything it
+collected. A schedule RBAC Lens added by itself (the daily check, an hourly
+collection) is not added again once deleted; pausing it is the way to stop
+it for a while.
 
 ## What's not covered
 

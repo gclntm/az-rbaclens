@@ -241,6 +241,13 @@ make backup prod
 make restart prod     # rebuilds, recreates, migrations run on start
 ```
 
+Nothing to rebuild by hand afterwards: the database migrates on start, the
+next daily check applies the new rules, and the next hourly collection of
+the Entra ID audit log fills in the history it holds. Don't empty the
+changes feed to rebuild it: it keeps 365 days, but only the newest 6 checks
+per place are kept (`SNAPSHOT_KEEP_PER_SCOPE`), so older changes couldn't be
+rebuilt.
+
 ### Published images
 
 Each release is also on Docker Hub, for linux/amd64 and linux/arm64:

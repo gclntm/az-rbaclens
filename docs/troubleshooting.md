@@ -119,6 +119,19 @@ identity the Entra role **Directory Readers**
 are then unknown, not absent: the changes feed reports nothing as removed
 there until a check reads it again.
 
+## The Changes page misses changes made before RBAC Lens was set up (or upgraded)
+
+The Changes page is built check by check: the first check is the starting
+point, and what it finds counts as how things were. Changes made before it
+aren't on the page, with one exception: Entra role changes come from the
+Entra ID audit log, as far back as Entra keeps it (7 days on Entra ID Free,
+30 days on P1/P2), once the identity can read it (AuditLog.Read.All). They
+fill in by themselves after the next hourly collection. What each kind of
+change covers is in [iam-access.md](iam-access.md#reviews-to-do-changes-and-report).
+
+Azure role changes from before the first check are still in the Activity
+Log page (90 days back), with who made them.
+
 ## A place shows as not read, or a check fails at its root
 
 A place Azure refuses (403) below the root is skipped and flagged `unread`

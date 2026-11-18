@@ -72,6 +72,9 @@ docker compose exec -T db pg_dump -U rbaclens -Fc rbaclens > rbaclens.dump
 docker compose up -d          # the database migrates on start
 ```
 
+Nothing else to run: the next daily check and the next hourly collection
+fill in what the new version adds.
+
 Release notes:
 [CHANGELOG](https://github.com/gclntm/az-rbaclens/blob/main/docs/CHANGELOG.md).
 More (building from source, email notifications, automatic backups, a
