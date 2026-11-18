@@ -6,7 +6,7 @@ carries a version). `make release V=X.Y.Z` turns that heading into
 `## [X.Y.Z] - YYYY-MM-DD`, bumps the version and tags `vX.Y.Z` — see
 [README-MAKE.md](README-MAKE.md) and `scripts/release.sh`.
 
-## 2026-11-18
+## [0.36.1] - 2026-11-18
 
 - **How it works** (`/help`, in the side menu): a page for newcomers on the
   workflow: the loop from the daily check to Needs a look, Reviews, To do
