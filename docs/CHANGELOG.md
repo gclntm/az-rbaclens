@@ -6,6 +6,15 @@ carries a version). `make release V=X.Y.Z` turns that heading into
 `## [X.Y.Z] - YYYY-MM-DD`, bumps the version and tags `vX.Y.Z` — see
 [README-MAKE.md](README-MAKE.md) and `scripts/release.sh`.
 
+## 2026-11-18
+
+- **Settings › Data kept: "Apply now" no longer drops unsaved changes.**
+  Retention only ever uses saved values, so with an edited value the button
+  now reads **Save and apply now**: it saves first (with the usual
+  confirmation when data would go), then applies. Before, it ran with the
+  saved values and the page then showed them, so an edited value seemed to
+  go back to 0.
+
 ## [0.35.0] - 2026-11-18
 
 - **Settings › Data kept**: how long each kind of data is kept, on one page,

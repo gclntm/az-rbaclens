@@ -57,6 +57,7 @@ export default function DataKeptTab() {
   }
 
   const changes = changedValues(data, edited);
+  const pending = Object.keys(changes).length > 0;
   const invalid = Object.entries(edited).filter(([name, value]) => !isValid(data, name, value));
   const set = (name: string, value: number) => {
     setEdited((e) => ({ ...e, [name]: value }));
@@ -77,40 +78,49 @@ export default function DataKeptTab() {
     }
   }
 
-  async function save() {
+  /** Save the edited values (confirmed when retention would delete data); true when saved.
+   *  ``andApply``: retention runs right after, so the dialog says "now". */
+  async function save(andApply = false): Promise<boolean> {
     const deletes = await runPreview();
-    if (!deletes) return;
+    if (!deletes) return false;
     const lost = Object.entries(deletes).filter(([k, n]) => n > 0 && k !== "days_to_fold");
     if (lost.length) {
       const ok = await confirm({
-        title: "Save these values?",
-        body: `At its next run, retention will delete ${lost
+        title: andApply ? "Save these values and apply them now?" : "Save these values?",
+        body: `${andApply ? "Retention will now delete" : "At its next run, retention will delete"} ${lost
           .map(([k, n]) => `${n.toLocaleString()} ${PREVIEW_WORDS[k] ?? k}`)
           .join(", ")}. Deleted data can't be restored.`,
-        action: "Save",
+        action: andApply ? "Save and apply" : "Save",
         danger: true,
       });
-      if (!ok) return;
+      if (!ok) return false;
     }
     setBusy("save");
     try {
       load(await api.database.saveDataKept(changes));
-      showToast("Saved", "success");
+      if (!andApply) showToast("Saved", "success");
+      return true;
     } catch (e) {
       showToast(`Couldn't save: ${(e as Error).message}`, "error");
+      return false;
     } finally {
       setBusy(null);
     }
   }
 
+  /** Run retention now. Unsaved changes are saved first: retention only ever uses saved values. */
   async function applyNow() {
-    const ok = await confirm({
-      title: "Apply what is kept now?",
-      body: "Retention runs now with the saved values. Deleted data can't be restored.",
-      action: "Apply now",
-      danger: true,
-    });
-    if (!ok) return;
+    if (pending) {
+      if (!(await save(true))) return;
+    } else {
+      const ok = await confirm({
+        title: "Apply what is kept now?",
+        body: "Retention runs now with the saved values. Deleted data can't be restored.",
+        action: "Apply now",
+        danger: true,
+      });
+      if (!ok) return;
+    }
     setBusy("apply");
     try {
       const r = await api.database.applyRetention();
@@ -174,8 +184,9 @@ export default function DataKeptTab() {
           </p>
         )}
         <div className={cx(FORM_ROW, "mt-3 justify-end")}>
-          <Button type="button" onClick={applyNow} disabled={busy !== null}>
-            {busy === "apply" ? "Applying…" : "Apply now"}
+          {pending && <span className={cx(CAPTION, "mr-auto")}>Unsaved changes: retention uses saved values only.</span>}
+          <Button type="button" onClick={() => void applyNow()} disabled={busy !== null || (pending && invalid.length > 0)}>
+            {busy === "apply" ? "Applying…" : pending ? "Save and apply now" : "Apply now"}
           </Button>
           <Button type="button" onClick={() => void runPreview()} disabled={busy !== null || invalid.length > 0}>
             {busy === "preview" ? "Counting…" : "Preview what would be deleted"}
@@ -184,7 +195,7 @@ export default function DataKeptTab() {
             variant="primary"
             type="button"
             onClick={() => void save()}
-            disabled={busy !== null || invalid.length > 0 || Object.keys(changes).length === 0}
+            disabled={busy !== null || invalid.length > 0 || !pending}
           >
             {busy === "save" ? "Saving…" : "Save"}
           </Button>
