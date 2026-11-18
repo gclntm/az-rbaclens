@@ -1,4 +1,11 @@
-import { type Coverage, type Freshness, type JobSchedule, MGMT_GROUPS, type SubscriptionCoverage } from "@/api/client";
+import {
+  type Coverage,
+  type EntraAudit,
+  type Freshness,
+  type JobSchedule,
+  MGMT_GROUPS,
+  type SubscriptionCoverage,
+} from "@/api/client";
 import type { Tone } from "@/components/PageTemplate";
 
 /** "18 min", "5 h", "12 days": how far behind, coarse. */
@@ -102,6 +109,40 @@ export function schedulesTile(counts: { total: number; on: number; off: number; 
 }
 
 /** The second pass in one line. */
+/**
+ * The Entra ID audit log in words: whether it can be read and how far it is collected.
+ * The tone is "warn" only when it was readable and its collection stopped.
+ */
+export function entraAuditText(e: EntraAudit, when: (iso: string) => string): { text: string; tone: Tone } {
+  const what = "who adds or removes group members";
+  switch (e.status) {
+    case "readable":
+      if (!e.schedule_id) return { text: `Readable (${what}), but its collection was removed.`, tone: "info" };
+      if (!e.enabled) return { text: `Readable (${what}); its hourly collection is paused.`, tone: "warn" };
+      if (e.collecting) return { text: `Collecting now (${what}).`, tone: "ok" };
+      return {
+        text: e.covered_until
+          ? `Collected every hour (${what}), up to ${when(e.covered_until)}.`
+          : `Collected every hour (${what}); the first collection hasn't run yet.`,
+        tone: "ok",
+      };
+    case "no_permission":
+      return {
+        text: `Not read: to say ${what}, the identity needs the Microsoft Graph permission AuditLog.Read.All (read-only).`,
+        tone: "info",
+      };
+    case "licence_required":
+      return {
+        text: `Not read: Microsoft Graph refused it because of the tenant's licence (the API may need Entra ID P1 or P2).`,
+        tone: "info",
+      };
+    case "unavailable":
+      return { text: `${e.message ?? "Microsoft Graph didn't answer."} Tried again after the next check.`, tone: "info" };
+    default:
+      return { text: `Not tried yet: it says ${what}, and is tried after each check.`, tone: "info" };
+  }
+}
+
 export function secondPassText(cov: Coverage, when: (iso: string) => string): string {
   if (cov.second_pass_hours <= 0) return "Second pass: off";
   if (!cov.second_pass_finished_at) return "Second pass: not run yet (every night)";

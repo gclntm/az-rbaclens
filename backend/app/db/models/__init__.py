@@ -6,6 +6,7 @@ from app.db.models.activity import (
     ActivityCompactedDay,
     ActivityEvent,
     ActivityPull,
+    DirectoryAuditEvent,
     OperationName,
 )
 from app.db.models.checks import (
@@ -57,6 +58,7 @@ __all__ = [
     "AuditEvent",
     "AuthSettings",
     "AzureCredentials",
+    "DirectoryAuditEvent",
     "Finding",
     "GroupMembership",
     "JobSchedule",

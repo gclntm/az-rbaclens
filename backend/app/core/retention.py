@@ -37,6 +37,7 @@ from app.db.models import (
     ActivityEvent,
     ActivityPull,
     AuditEvent,
+    DirectoryAuditEvent,
     JobSchedule,
     Scan,
     Scope,
@@ -150,7 +151,13 @@ def prune_events(session: Session, now: datetime, days: int) -> int:
         session.commit()
         total += n or 0
         if not n or n < _EVENT_BATCH:
-            return total
+            break
+    # The Entra ID audit log's membership changes are kept as long (tools/entra_audit.py).
+    n = session.execute(
+        delete(DirectoryAuditEvent).where(DirectoryAuditEvent.occurred_at < cutoff)
+    ).rowcount
+    session.commit()
+    return total + (n or 0)
 
 
 def prune_audit(session: Session, now: datetime, days: int) -> int:

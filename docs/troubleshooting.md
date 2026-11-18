@@ -85,6 +85,28 @@ Fix: give the identity the Entra role **Directory Readers** (what
 Graph application permission `Directory.Read.All` with admin consent. The
 next check resolves the names again.
 
+## Changes page: "who changed the group is not known here"
+
+Symptom: someone joined or left a group that holds access, and the Changes
+page only says when the daily check first saw it.
+
+Cause, by what Data & schedules says under **Activity Log coverage →
+Entra ID audit log**:
+
+- **Not read: … AuditLog.Read.All**: the identity can't read the Entra ID
+  audit log. Fix: add that Microsoft Graph application permission to
+  `sp-rbaclens-reader`, grant admin consent
+  ([deployment.md](deployment.md#azure-identity-least-privilege)), then
+  **Check now**. The hourly collection starts by itself.
+- **Not read: … licence**: Microsoft Graph refused the audit log because
+  of the tenant's licence (the error code mentions a non-premium tenant).
+  Reading it through the API may need Entra ID P1 or P2.
+- **Collected every hour**, but this change still has no author: Entra had
+  no entry for it in the window. A whole group nested into the group that
+  holds access brings its members with one entry that names the nested
+  group, not them; those stay "first seen". So does a change older than
+  what Entra keeps (7 or 30 days) when the collection started.
+
 ## A place shows as not read, or a check fails at its root
 
 A place Azure refuses (403) below the root is skipped and flagged `unread`

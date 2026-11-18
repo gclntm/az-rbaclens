@@ -72,6 +72,8 @@ def _read(c: AccessChange) -> ChangeRead:
         via_group_name=c.via_group_name,
         actor_id=c.actor_id,
         actor_name=c.actor_name,
+        actor_type=c.actor_type,
+        direct_group_name=c.direct_group_name,
         grant_id=c.subject_key if c.kind in _GRANT_KINDS else None,
         check_id=c.first_seen_scan_id,
     )

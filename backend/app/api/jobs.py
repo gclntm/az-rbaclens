@@ -24,6 +24,7 @@ from app.db.models import ActivityPull, JobSchedule, Scan
 from app.db.session import get_session
 from app.schemas.jobs import (
     CoverageRead,
+    EntraAuditRead,
     JobRead,
     ScheduleCreate,
     ScheduleRead,
@@ -177,7 +178,21 @@ def activity_coverage(session: Annotated[Session, Depends(get_session)]) -> Cove
         second_pass_subscriptions=summary.subscriptions,
         second_pass_late_events=summary.late_events,
         second_pass_failed=summary.failed,
+        entra_audit=EntraAuditRead(**vars(coverage_mod.entra_audit(session))),
     )
+
+
+@router.post("/activity/entra-audit/check", response_model=EntraAuditRead)
+def check_entra_audit(session: Annotated[Session, Depends(get_session)]) -> EntraAuditRead:
+    """Try the Entra ID audit log now (after granting AuditLog.Read.All, say);
+    once it can be read, its hourly collection is added."""
+    from app.core.default_schedules import ensure_default_schedules
+    from app.tools.entra_audit import refresh_status_if_due
+
+    now = datetime.now(UTC)
+    refresh_status_if_due(session, now, force=True)
+    ensure_default_schedules(session, now)
+    return EntraAuditRead(**vars(coverage_mod.entra_audit(session)))
 
 
 @router.get("/schedules", response_model=list[ScheduleRead])

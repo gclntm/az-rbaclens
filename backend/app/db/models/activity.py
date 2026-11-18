@@ -10,6 +10,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     event,
     func,
     text,
@@ -177,3 +178,44 @@ class OperationName(Base):
     display_name: Mapped[str] = mapped_column(Text, nullable=False)
     resource_type_display: Mapped[str | None] = mapped_column(Text)
     fetched_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+
+
+class DirectoryAuditEvent(Base):
+    """One group membership event from the Entra ID audit log (tools/entra_audit.py).
+
+    Who added or removed a member of a group, and when. The changes feed
+    matches them to the members a check saw join or leave a group that
+    holds access (``core/changes.py``). Ids are lowercased, as in
+    ``group_memberships``. Kept as long as the Activity Log
+    (``EVENT_RETENTION_DAYS``).
+    """
+
+    __tablename__ = "directory_audit_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # Entra's own id of the audit entry: reading a window twice stores it once.
+    audit_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    # add | remove
+    action: Mapped[str] = mapped_column(String(10), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False, index=True)
+    # success | failure | … as Entra says it
+    result: Mapped[str | None] = mapped_column(String(20))
+    group_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    group_name: Mapped[str | None] = mapped_column(String(500))
+    member_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    member_type: Mapped[str | None] = mapped_column(String(50))
+    member_name: Mapped[str | None] = mapped_column(String(500))
+    # user | app: who made the change. An app is how Entra records a change
+    # made through a service (Teams or Outlook for Microsoft 365 groups,
+    # access packages, PIM, the sync from on-premises AD).
+    initiator_type: Mapped[str | None] = mapped_column(String(10))
+    initiator_id: Mapped[str | None] = mapped_column(String(64))
+    initiator_name: Mapped[str | None] = mapped_column(String(500))
+    raw: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"), deferred=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (UniqueConstraint("audit_id", name="uq_directory_audit_events_audit_id"),)

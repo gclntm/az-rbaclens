@@ -29,7 +29,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.activity_targets import is_mgmt_groups
+from app.core.activity_targets import is_entra_audit, is_mgmt_groups
 from app.core.coverage import AZURE_KEEPS_DAYS, coverage
 from app.core.job_errors import explain
 from app.core.timeutil import as_utc
@@ -62,6 +62,8 @@ def _target_name(schedule: JobSchedule, names: dict[str, str]) -> str:
     target = schedule.target.lower()
     if schedule.kind == "activity_pull" and is_mgmt_groups(target):
         return "the management groups"
+    if schedule.kind == "activity_pull" and is_entra_audit(target):
+        return "the Entra ID audit log"
     key = target if schedule.kind == "snapshot" else f"/subscriptions/{target}"
     return names.get(key) or target.rsplit("/", 1)[-1]
 

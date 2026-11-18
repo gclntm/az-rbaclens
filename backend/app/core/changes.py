@@ -14,6 +14,14 @@ matching Activity Log event (by Azure's assignment id), Azure's own
 ``createdOn`` / ``createdBy`` on a new grant, or the check itself ("first
 seen", no author). A later Activity Log pull can still upgrade a "first
 seen" entry (``refine_from_events``).
+
+Someone joining or leaving a group is a change in Entra ID, which the
+Activity Log never sees: its author comes from the Entra ID audit log when
+RBAC Lens collects it (``tools/entra_audit.py``), matched on the member and
+the group, or a group nested inside it in both checks (``_apply_directory_audits``;
+``refine_from_directory_audits`` for entries that arrive late). A whole
+group nested into another brings many members with one entry naming the
+nested group, not them: those stay "first seen".
 """
 
 from __future__ import annotations
@@ -36,6 +44,7 @@ from app.core.timeutil import as_utc
 from app.db.models import (
     AccessChange,
     ActivityEvent,
+    DirectoryAuditEvent,
     GroupMembership,
     Principal,
     RoleAssignment,
@@ -392,7 +401,131 @@ def _membership_changes(
                         subject_key=f"member:{gid}:{mid}",
                     )
                 )
+    prev_at = as_utc(prev.finished_at) or seen_at
+    _apply_directory_audits(
+        session, out, _nested_groups(old_m, new_m), prev_at - EVENT_SLACK, seen_at
+    )
     return out
+
+
+_AUDIT_ACTION = {"member_added": "add", "member_removed": "remove"}
+
+
+def _nested_groups(
+    before: dict[str, dict[str, tuple[str | None, str | None]]],
+    after: dict[str, dict[str, tuple[str | None, str | None]]],
+) -> dict[str, set[str]]:
+    """``{group: groups nested inside it in both checks}``.
+
+    A group nested between the two checks brought its members by being
+    nested: whoever earlier added a member to it did not give that access,
+    so its entries don't count (those members stay "first seen").
+    """
+
+    def groups(ms: dict[str, tuple[str | None, str | None]]) -> set[str]:
+        return {mid for mid, (_name, mtype) in ms.items() if mtype == "Group"}
+
+    return {gid: groups(before[gid]) & groups(after[gid]) for gid in before.keys() & after.keys()}
+
+
+def _apply_directory_audits(
+    session: Session,
+    changes: list[AccessChange],
+    nested: dict[str, set[str]],
+    since: datetime,
+    until: datetime,
+) -> int:
+    """Give membership changes the time and author of their Entra ID audit entry.
+
+    An entry matches when it is the same action, for the same member, on the
+    group that holds access or a group nested inside it, between the two
+    checks. The newest one wins (added, removed and added again). Returns
+    how many changes were updated; the caller commits.
+    """
+    wanted = [c for c in changes if c.kind in _AUDIT_ACTION and c.via_group_id]
+    if not wanted:
+        return 0
+    events: dict[tuple[str, str], list[DirectoryAuditEvent]] = defaultdict(list)
+    for chunk in _chunks(sorted({c.principal_id.lower() for c in wanted})):
+        for ev in session.scalars(
+            select(DirectoryAuditEvent)
+            .where(DirectoryAuditEvent.member_id.in_(chunk))
+            .where(DirectoryAuditEvent.occurred_at >= since)
+            .where(DirectoryAuditEvent.occurred_at <= until)
+        ).all():
+            if (ev.result or "success").lower() == "success":
+                events[(ev.member_id, ev.action)].append(ev)
+    updated = 0
+    for c in wanted:
+        gid = (c.via_group_id or "").lower()
+        groups = {gid} | nested.get(gid, set())
+        hits = [
+            e
+            for e in events.get((c.principal_id.lower(), _AUDIT_ACTION[c.kind]), [])
+            if e.group_id in groups
+        ]
+        if not hits:
+            continue
+        ev = max(hits, key=lambda e: (as_utc(e.occurred_at), e.id or 0))
+        c.occurred_at = as_utc(ev.occurred_at)
+        c.source = "entra_audit"
+        c.actor_id = ev.initiator_id
+        c.actor_name = ev.initiator_name
+        c.actor_type = ev.initiator_type
+        c.direct_group_name = (ev.group_name or ev.group_id) if ev.group_id != gid else None
+        updated += 1
+    return updated
+
+
+def _nested_in_checks(
+    session: Session, prev_id: int | None, scan_id: int, group_ids: set[str]
+) -> dict[str, set[str]]:
+    """``{group: groups nested inside it in both checks}``, for those groups only."""
+    if prev_id is None or not group_ids:
+        return {}
+    seen: dict[int, dict[str, set[str]]] = {prev_id: defaultdict(set), scan_id: defaultdict(set)}
+    for chunk in _chunks(sorted(group_ids)):
+        for sid, gid, mid in session.execute(
+            select(GroupMembership.scan_id, GroupMembership.group_id, GroupMembership.member_id)
+            .where(GroupMembership.scan_id.in_((prev_id, scan_id)))
+            .where(GroupMembership.member_type == "Group")
+            .where(func.lower(GroupMembership.group_id).in_(chunk))
+        ).all():
+            seen[sid][gid.lower()].add(mid.lower())
+    return {g: seen[prev_id][g] & seen[scan_id][g] for g in group_ids}
+
+
+def refine_from_directory_audits(session: Session, days: int = 14) -> int:
+    """Give "first seen" membership changes their author once the Entra ID
+    audit log entries arrive (the collection may run after the check). Commits."""
+    since = datetime.now(UTC) - timedelta(days=days)
+    rows = session.scalars(
+        select(AccessChange)
+        .where(AccessChange.source == "daily_check")
+        .where(AccessChange.kind.in_(tuple(_AUDIT_ACTION)))
+        .where(AccessChange.first_seen_scan_id.is_not(None))
+        .where(AccessChange.occurred_at >= since)
+    ).all()
+    by_scan: dict[int, list[AccessChange]] = defaultdict(list)
+    for r in rows:
+        by_scan[r.first_seen_scan_id].append(r)  # type: ignore[index]
+    updated = 0
+    for scan_id, changes in by_scan.items():
+        scan = session.get(Scan, scan_id)
+        if scan is None:
+            continue
+        prev = previous_done_scan(session, scan)
+        until = as_utc(scan.finished_at) or datetime.now(UTC)
+        prev_at = (as_utc(prev.finished_at) if prev else None) or until
+        nested = _nested_in_checks(
+            session,
+            prev.id if prev else None,
+            scan.id,
+            {(c.via_group_id or "").lower() for c in changes},
+        )
+        updated += _apply_directory_audits(session, changes, nested, prev_at - EVENT_SLACK, until)
+    session.commit()
+    return updated
 
 
 def record_changes_for_scan(session: Session, scan_id: int) -> int:

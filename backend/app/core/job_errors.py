@@ -24,6 +24,15 @@ _RULES: tuple[tuple[re.Pattern[str], str], ...] = tuple(
             "It stopped responding and was closed after an hour without a sign of life.",
         ),
         (
+            r"AuditLogNotReadable.*licen[cs]e",
+            "Microsoft Graph refused the Entra ID audit log because of the tenant's licence.",
+        ),
+        (
+            r"AuditLogNotReadable",
+            "The app's identity lacks the Microsoft Graph permission AuditLog.Read.All "
+            "to read the Entra ID audit log.",
+        ),
+        (
             (
                 r"Failed to resolve|NameResolutionError|No address associated with hostname|"
                 r"Name or service not known|Temporary failure in name resolution|getaddrinfo"

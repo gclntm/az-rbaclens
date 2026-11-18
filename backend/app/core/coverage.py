@@ -14,6 +14,10 @@ It also reports the **second pass** (``core/scheduler.start_second_pass``):
 once a night each subscription's last two days are read again, so an event
 Azure delivered more than an hour late, after its window was collected, is
 still caught. What the pass inserts is counted as "late events".
+
+The Entra ID audit log (``tools/entra_audit.py``) is not an Activity Log and
+has no row here: :func:`entra_audit` says whether it can be read and how far
+it is collected.
 """
 
 from __future__ import annotations
@@ -25,7 +29,7 @@ from typing import Literal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.activity_targets import MGMT_GROUPS, MGMT_GROUPS_NAME
+from app.core.activity_targets import ENTRA_AUDIT, MGMT_GROUPS, MGMT_GROUPS_NAME, is_entra_audit
 from app.core.timeutil import as_utc
 from app.db.models import ActivityPull, JobSchedule, Scope
 
@@ -77,6 +81,46 @@ def _state(behind_hours: float | None, days_left: int | None, every_hours: int) 
     return "at_risk" if days_left < AT_RISK_DAYS_LEFT else "behind"
 
 
+@dataclass(frozen=True)
+class EntraAudit:
+    """Whether the Entra ID audit log can be read, and its collection."""
+
+    status: str | None
+    checked_at: datetime | None
+    message: str | None
+    schedule_id: int | None
+    enabled: bool
+    collecting: bool
+    covered_until: datetime | None
+
+
+def entra_audit(session: Session) -> EntraAudit:
+    from app.tools.entra_audit import read_status
+
+    state = read_status(session)
+    schedule = session.scalar(
+        select(JobSchedule).where(
+            JobSchedule.kind == "activity_pull", JobSchedule.target == ENTRA_AUDIT
+        )
+    )
+    busy = session.scalar(
+        select(ActivityPull.id)
+        .where(ActivityPull.subscription_id == ENTRA_AUDIT)
+        .where(ActivityPull.status.in_(_IN_FLIGHT))
+        .limit(1)
+    )
+    checked = state.get("checked_at")
+    return EntraAudit(
+        status=state.get("status"),
+        checked_at=as_utc(datetime.fromisoformat(checked)) if checked else None,
+        message=state.get("message"),
+        schedule_id=schedule.id if schedule else None,
+        enabled=bool(schedule and schedule.enabled),
+        collecting=busy is not None,
+        covered_until=as_utc(schedule.covered_until) if schedule else None,
+    )
+
+
 def coverage(session: Session, now: datetime | None = None) -> list[SubscriptionCoverage]:
     """Every known subscription, worst state first, then by name."""
     now = now or datetime.now(UTC)
@@ -85,6 +129,7 @@ def coverage(session: Session, now: datetime | None = None) -> list[Subscription
         for s in session.scalars(
             select(JobSchedule).where(JobSchedule.kind == "activity_pull")
         ).all()
+        if not is_entra_audit(s.target)
     }
     names = {
         sid.lower().rsplit("/", 1)[-1]: name

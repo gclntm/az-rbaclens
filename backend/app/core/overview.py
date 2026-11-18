@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.activity_targets import ENTRA_AUDIT, ENTRA_AUDIT_NAME, MGMT_GROUPS, MGMT_GROUPS_NAME
 from app.core.capabilities import LEVELS
 from app.core.changes import GIVEN_KINDS, REMOVED_KINDS
 from app.core.current_view import current_view, grant_id
@@ -169,12 +170,15 @@ def build_overview(
         select(ActivityPull).order_by(ActivityPull.created_at.desc()).limit(6)
     ).all():
         sub_scope = f"/subscriptions/{p.subscription_id.lower()}"
+        special = {MGMT_GROUPS: MGMT_GROUPS_NAME, ENTRA_AUDIT: ENTRA_AUDIT_NAME}.get(
+            p.subscription_id.lower()
+        )
         jobs.append(
             JobRow(
                 kind="activity_pull",
                 id=p.id,
                 target=sub_scope,
-                target_name=names.get(sub_scope),
+                target_name=special or names.get(sub_scope),
                 status=p.status,
                 progress_done=p.progress_done,
                 progress_total=None,

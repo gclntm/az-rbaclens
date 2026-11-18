@@ -31,7 +31,7 @@ from azure.mgmt.monitor import MonitorManagementClient
 
 from app.core.activity_compaction import compacted_days, skip_on_compacted_day, utc_day
 from app.core.activity_payload import slim_payload
-from app.core.activity_targets import is_mgmt_groups
+from app.core.activity_targets import is_entra_audit, is_mgmt_groups
 from app.core.azure import get_azure_transport, get_credential
 from app.core.config import settings
 from app.core.jobs import finish_job, mark_job_failed, start_job
@@ -79,8 +79,11 @@ def run_pull(pull_id: int) -> None:
             credential = get_credential()
             transport = get_azure_transport()
             mgmt_groups = is_mgmt_groups(pull.subscription_id)
+            entra = is_entra_audit(pull.subscription_id)
             not_readable: list[str] = []
-            if mgmt_groups:
+            if entra:
+                persisted, seen = _collect_entra_audit(session, credential, transport, pull)
+            elif mgmt_groups:
                 persisted, seen, not_readable = _collect_mgmt_groups(
                     session, credential, transport, pull
                 )
@@ -97,7 +100,9 @@ def run_pull(pull_id: int) -> None:
             pull.events_persisted = persisted
             pull.heartbeat_at = datetime.now(UTC)
             pull.progress_message = (
-                f"Done — {persisted} new events ({seen - persisted} duplicates skipped)"
+                f"Done — {persisted} new membership changes ({seen - persisted} on file already)"
+                if entra
+                else f"Done — {persisted} new events ({seen - persisted} duplicates skipped)"
             )
             if not_readable:
                 pull.progress_message += f" · Not readable: {', '.join(not_readable)}"
@@ -122,6 +127,17 @@ def run_pull(pull_id: int) -> None:
             # pulls of this round (findings.flush_recompute); without a
             # scheduler loop (tests, one-off tools) it happens here.
             # Never fails the pull.
+            if entra:
+                # Not an Azure Activity Log: no usage findings, no operation
+                # names. Who changed the groups the checks saw change.
+                try:
+                    from app.core.changes import refine_from_directory_audits
+
+                    refine_from_directory_audits(session)
+                except Exception:
+                    logger.exception("changes refinement after pull %s failed", pull_id)
+                    session.rollback()
+                return
             if persisted:
                 try:
                     from app.core import findings
@@ -200,6 +216,29 @@ def _collect_events(
     )
 
     return _persist_entries(session, pull, monitor.activity_logs.list(filter=fltr))
+
+
+def _collect_entra_audit(
+    session: Any, credential: Any, transport: Any, pull: ActivityPull
+) -> tuple[int, int]:
+    """Read the Entra ID audit log's membership changes for the window (tools/entra_audit.py).
+
+    A refusal (permission or licence) is remembered, so Data & schedules
+    says why, and fails the collection.
+    """
+    from app.tools import entra_audit
+
+    try:
+        found = entra_audit.collect(session, entra_audit.client(credential, transport), pull)
+    except entra_audit.AuditLogNotReadable as exc:
+        session.rollback()
+        entra_audit.save_status(session, exc.reason, datetime.now(UTC))
+        session.commit()
+        raise
+    if entra_audit.read_status(session).get("status") != entra_audit.READABLE:
+        entra_audit.save_status(session, entra_audit.READABLE, datetime.now(UTC))
+        session.commit()
+    return found
 
 
 def _collect_mgmt_groups(

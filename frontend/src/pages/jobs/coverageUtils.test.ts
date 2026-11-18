@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { Coverage, Freshness, JobSchedule, SubscriptionCoverage } from "@/api/client";
+import type { Coverage, EntraAudit, Freshness, JobSchedule, SubscriptionCoverage } from "@/api/client";
 
 import {
   checkTile,
@@ -9,6 +9,7 @@ import {
   coveragePill,
   coverageText,
   coverageTone,
+  entraAuditText,
   lagText,
   schedulesTile,
   secondPassText,
@@ -22,7 +23,8 @@ function sub(over: Partial<SubscriptionCoverage>): SubscriptionCoverage {
 }
 const cov = (subscriptions: SubscriptionCoverage[], over: Partial<Coverage> = {}): Coverage => ({
   azure_keeps_days: 90, at_risk_days_left: 30, subscriptions, second_pass_hours: 48, second_pass_finished_at: "t",
-  second_pass_subscriptions: subscriptions.length, second_pass_late_events: 0, second_pass_failed: 0, ...over,
+  second_pass_subscriptions: subscriptions.length, second_pass_late_events: 0, second_pass_failed: 0,
+  entra_audit: { status: null, checked_at: null, message: null, schedule_id: null, enabled: false, collecting: false, covered_until: null }, ...over,
 });
 const behind = sub({ name: "test", state: "behind", enabled: false, behind_hours: 12 * 24, days_left: 77 });
 const atRisk = sub({ name: "old", state: "at_risk", behind_hours: 70 * 24, days_left: 19 });
@@ -96,5 +98,19 @@ describe("status tiles", () => {
     );
     expect(secondPassText(cov([], { second_pass_finished_at: null }), when2)).toBe("Second pass: not run yet (every night)");
     expect(secondPassText(cov([], { second_pass_hours: 0 }), when2)).toBe("Second pass: off");
+  });
+
+  it("says whether the Entra ID audit log is read, and why not", () => {
+    const e = (over: Partial<EntraAudit>): EntraAudit => ({ ...cov([]).entra_audit, ...over });
+    const when = (iso: string) => `at ${iso}`;
+    expect(entraAuditText(e({}), when).text).toMatch(/^Not tried yet/);
+    expect(entraAuditText(e({ status: "no_permission" }), when).text).toMatch(/AuditLog\.Read\.All/);
+    expect(entraAuditText(e({ status: "licence_required" }), when).text).toMatch(/P1 or P2/);
+    const read = e({ status: "readable", schedule_id: 7, enabled: true, covered_until: "t" });
+    expect(entraAuditText(read, when)).toEqual({
+      text: "Collected every hour (who adds or removes group members), up to at t.",
+      tone: "ok",
+    });
+    expect(entraAuditText({ ...read, enabled: false }, when).tone).toBe("warn");
   });
 });

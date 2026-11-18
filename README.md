@@ -58,6 +58,7 @@ it, and schedules keep it current:
 |------|---------------|-----------|
 | **Check** | Who has which role: every role assignment, PIM eligibility and group membership under one place (management group, subscription, resource group or resource). | Daily for the tenant root, or on demand |
 | **Activity Log collection** | Who changed what: Azure's control-plane log (writes, deletes, access changes, `listKeys`) per subscription, plus the management groups' log. | Every hour; the first run fetches the last 90 days, all that Azure keeps |
+| **Entra ID audit log collection** (optional) | Who added or removed a group member. Needs the Graph permission AuditLog.Read.All. | Every hour, once the identity can read it |
 | **Schedule** | Runs a check or a collection by itself. | Pause, edit or *Run now* on **Data & schedules** |
 
 1. **Give it an identity.** A service principal with Reader on the places

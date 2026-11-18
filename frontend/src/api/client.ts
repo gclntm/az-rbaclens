@@ -616,6 +616,9 @@ export type RetentionRun = {
 /** The Activity Log target that stands for the logs of all management groups (backend: core/activity_targets.py). */
 export const MGMT_GROUPS = "management-groups";
 export const MGMT_GROUPS_NAME = "Management groups";
+/** The Entra ID audit log: who adds or removes group members (core/activity_targets.py). */
+export const ENTRA_AUDIT = "entra-directory";
+export const ENTRA_AUDIT_NAME = "Entra ID audit log";
 
 export type JobKind = "snapshot" | "activity_pull";
 
@@ -1057,8 +1060,11 @@ export type AccessChange = {
   id: number;
   occurred_at: string;
   kind: ChangeKind;
-  /** activity_log: exact, with author · created_on: Azure's own record · daily_check: first seen. */
-  source: "activity_log" | "created_on" | "daily_check";
+  /**
+   * activity_log: exact, with author · created_on: Azure's own record · entra_audit: the
+   * Entra ID audit log (someone joining or leaving a group) · daily_check: first seen.
+   */
+  source: "activity_log" | "created_on" | "daily_check" | "entra_audit";
   scope: string;
   scope_name: string | null;
   scope_level: ScopeLevel;
@@ -1072,6 +1078,10 @@ export type AccessChange = {
   via_group_name: string | null;
   actor_id: string | null;
   actor_name: string | null;
+  /** "app" when Entra records an app as the author (Teams, access packages, PIM, AD sync); "user" for a person. */
+  actor_type: string | null;
+  /** The nested group the member was added to or removed from, inside via_group. */
+  direct_group_name: string | null;
   grant_id: string | null;
   check_id: number | null;
 };
@@ -1152,6 +1162,21 @@ export type Coverage = {
   second_pass_subscriptions: number;
   second_pass_late_events: number;
   second_pass_failed: number;
+  entra_audit: EntraAudit;
+};
+
+export type EntraAuditStatus = "readable" | "no_permission" | "licence_required" | "unavailable";
+
+/** Whether the Entra ID audit log can be read (who adds or removes group members), and its collection. */
+export type EntraAudit = {
+  /** null until it has been tried (after a check, or with Check now). */
+  status: EntraAuditStatus | null;
+  checked_at: string | null;
+  message: string | null;
+  schedule_id: number | null;
+  enabled: boolean;
+  collecting: boolean;
+  covered_until: string | null;
 };
 
 export type ResponsibleRead = {
@@ -1840,6 +1865,7 @@ export const api = {
     },
     schedules: () => request<JobSchedule[]>("/schedules"),
     coverage: () => request<Coverage>("/activity/coverage"),
+    checkEntraAudit: () => request<EntraAudit>("/activity/entra-audit/check", { method: "POST" }),
     createSchedule: (body: JobScheduleCreate) =>
       request<JobSchedule>("/schedules", { method: "POST", body: JSON.stringify(body) }),
     updateSchedule: (id: number, body: JobScheduleUpdate) =>

@@ -33,5 +33,9 @@ with v(x) as (
   union select reviewer_name from todos
   union select scope_name from assessments union select created_by_name from assessments
   union select distinct resource_id from activity_events
+  union select initiator_name from directory_audit_events union select initiator_id from directory_audit_events
+  union select group_name from directory_audit_events union select group_id from directory_audit_events
+  union select member_name from directory_audit_events union select member_id from directory_audit_events
+  union select direct_group_name from access_changes
 )
 select distinct trim(x) from v where x is not null and length(trim(x)) >= 5;

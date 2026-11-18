@@ -227,6 +227,23 @@ def _compute_findings_safely(session: Any, scan_id: int) -> None:
         session.rollback()
 
 
+def _try_entra_audit(session: Any) -> None:
+    """Can the Entra ID audit log be read? Tried at most once a day while it
+    can't, so its collection starts by itself once the permission is granted.
+    Never fails the scan."""
+    from app.core.config import settings
+
+    if not settings.default_schedules:
+        return
+    try:
+        from app.tools.entra_audit import refresh_status_if_due
+
+        refresh_status_if_due(session, datetime.now(UTC))
+    except Exception:
+        logger.exception("Entra ID audit log could not be tried")
+        session.rollback()
+
+
 def _record_changes_safely(session: Any, scan_id: int) -> None:
     """Changes feed entries for a just-completed check, and pull schedules
     for subscriptions it found for the first time. Never fails the scan."""
@@ -235,6 +252,7 @@ def _record_changes_safely(session: Any, scan_id: int) -> None:
         from app.core.default_schedules import ensure_default_schedules
 
         record_changes_for_scan(session, scan_id)
+        _try_entra_audit(session)
         ensure_default_schedules(session, datetime.now(UTC))
     except Exception:
         logger.exception("changes feed update failed for scan %s (scan stays done)", scan_id)

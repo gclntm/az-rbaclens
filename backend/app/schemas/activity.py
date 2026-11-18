@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.core.activity_targets import MGMT_GROUPS
+from app.core.activity_targets import ENTRA_AUDIT, MGMT_GROUPS
 from app.core.timeutil import as_utc
 
 PullStatus = Literal["pending", "running", "done", "failed"]
@@ -16,10 +16,13 @@ _CLOCK_SLACK = timedelta(minutes=5)
 
 def _subscription(value: str) -> str:
     """A subscription GUID, lowercased: events and the in-flight guard key on that form.
-    ``management-groups`` stands for the logs of all management groups."""
+    ``management-groups`` stands for the logs of all management groups,
+    ``entra-directory`` for the Entra ID audit log."""
     value = value.strip().lower()
-    if value != MGMT_GROUPS and not _GUID.match(value):
-        raise ValueError("subscription_id must be a subscription GUID, or management-groups")
+    if value not in (MGMT_GROUPS, ENTRA_AUDIT) and not _GUID.match(value):
+        raise ValueError(
+            "subscription_id must be a subscription GUID, management-groups or entra-directory"
+        )
     return value
 
 

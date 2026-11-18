@@ -1,5 +1,7 @@
 """Default schedules: the daily check of the whole tenant, and an hourly
 Activity Log pull for every subscription and for the management groups.
+The hourly collection of the Entra ID audit log is added only once the
+identity can read it (``tools/entra_audit.py``: tried after each check).
 
 Created once, when the registry first knows the tenant's root management
 group (after the first check), and kept up to date afterwards: a
@@ -18,7 +20,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.activity_targets import MGMT_GROUPS
+from app.core.activity_targets import ENTRA_AUDIT, MGMT_GROUPS
 from app.core.config import settings
 from app.core.scheduler import next_run, normalize_target
 from app.db.models import AppSetting, JobSchedule, Scope
@@ -100,6 +102,11 @@ def ensure_default_schedules(session: Session, now: datetime) -> list[JobSchedul
     # One collection for the logs of all management groups (core/activity_targets.py).
     if session.scalar(select(Scope.id).where(Scope.level == "mgmt_group").limit(1)) is not None:
         add("activity_pull", MGMT_GROUPS, every_hours=1, initial_window_days=90, next_run_at=now)
+    # Entra keeps its audit log 30 days at most: the first collection reads all of it.
+    from app.tools.entra_audit import READABLE, read_status
+
+    if read_status(session).get("status") == READABLE:
+        add("activity_pull", ENTRA_AUDIT, every_hours=1, initial_window_days=30, next_run_at=now)
 
     _save(session, state)
     session.commit()

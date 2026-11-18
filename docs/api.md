@@ -188,8 +188,12 @@ newest first. `given` covers `granted`, `eligible_added`, `member_added`;
 `removed` the opposite three. Returns `total`, `items` (one page), counts
 `given` / `removed` / `powerful` before `direction` and `powerful_only`,
 and `weeks[]` per ISO week. `items[].source` is `activity_log` (exact, with
-author), `created_on` (Azure's createdOn / createdBy) or `daily_check`
-(first seen, no author).
+author), `created_on` (Azure's createdOn / createdBy), `entra_audit` (someone
+joining or leaving a group, from the Entra ID audit log) or `daily_check`
+(first seen, no author). With `entra_audit`, `actor_type` is `user` or `app`
+(a service: sync, dynamic membership, PIM) and `direct_group_name` names the
+nested group the member was added to or removed from, when it isn't the
+group that holds access.
 
 ### `GET /freshness`
 
@@ -308,9 +312,10 @@ A target with a job in flight is retried 5 minutes later.
 | Call | What it does |
 |---|---|
 | `GET /jobs?limit=50&kind=snapshot\|activity_pull&status=` | Checks and pulls merged, newest first, with `origin`, `schedule_id`, `error_summary` (the error in one plain sentence) and `unread`. |
-| `GET /activity/coverage` | Per subscription (plus `management-groups`): `state` (`ok`, `behind`, `at_risk`, `lost`, `never`, `no_schedule`), `days_left` before Azure's 90 days run out, and the second pass. |
+| `GET /activity/coverage` | Per subscription (plus `management-groups`): `state` (`ok`, `behind`, `at_risk`, `lost`, `never`, `no_schedule`), `days_left` before Azure's 90 days run out, and the second pass. `entra_audit`: whether the Entra ID audit log can be read (`status`: `readable`, `no_permission`, `licence_required`, `unavailable`, or null before it is tried), `checked_at`, `message`, and its schedule (`schedule_id`, `enabled`, `collecting`, `covered_until`). |
+| `POST /activity/entra-audit/check` | Try the Entra ID audit log now and, once it is readable, add its hourly collection. Returns the same `entra_audit` object. |
 | `GET /schedules` | Every schedule with `last_job_status`, `last_error_summary`, `failures`, `paused_at` / `paused_by`, `covered_until`. |
-| `POST /schedules` | `{kind, target, every_hours (1–720), at_hour (0–23, daily only), enabled, initial_window_days (1–90, pulls), start_now}` → 201. Pull targets: a subscription GUID or `management-groups`. 409 for a duplicate `(kind, target)`. |
+| `POST /schedules` | `{kind, target, every_hours (1–720), at_hour (0–23, daily only), enabled, initial_window_days (1–90, pulls), start_now}` → 201. Pull targets: a subscription GUID, `management-groups` or `entra-directory` (the Entra ID audit log). 409 for a duplicate `(kind, target)`. |
 | `PATCH /schedules/{id}` | `enabled`, `every_hours`, `at_hour` (`-1` clears), `initial_window_days`. Switching off stamps `paused_at` / `paused_by`. |
 | `DELETE /schedules/{id}` | 204; its jobs are kept. |
 | `POST /schedules/{id}/run` | Start now (202) and restart the cadence; 409 when the target has a job in flight. |
@@ -322,7 +327,7 @@ page (`/events`) browses what was pulled.
 
 | Call | What it does |
 |---|---|
-| `POST /activity/pulls` `{subscription_id, start, end}` | Background pull (201, `pending`). Window ≤ 90 days, `end` not in the future, times without a zone read as UTC. `subscription_id` is a GUID or `management-groups` (the logs of every management group the newest checks saw, `tools/mgmt_group_log.py`). 409 when one is in flight for it. |
+| `POST /activity/pulls` `{subscription_id, start, end}` | Background pull (201, `pending`). Window ≤ 90 days, `end` not in the future, times without a zone read as UTC. `subscription_id` is a GUID, `management-groups` (the logs of every management group the newest checks saw, `tools/mgmt_group_log.py`) or `entra-directory` (the Entra ID audit log's membership changes, `tools/entra_audit.py`). 409 when one is in flight for it. |
 | `GET /activity/pulls?subscription_id=&limit=50` · `GET /activity/pulls/{id}` | Recent pulls; one pull with live progress. |
 | `DELETE /activity/pulls/{id}` | Drops the record only; its events stay. |
 | `GET /activity/events?subscription_id=&caller=&operation_name=&status=&from=&to=&limit=500` | Newest first (`limit` 1–5000). `caller` and `operation_name` match substrings. Rows carry `operation_display`, `event_count` and `first_occurred_at`. |

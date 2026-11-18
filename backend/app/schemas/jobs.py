@@ -88,6 +88,19 @@ class SubscriptionCoverageRead(BaseModel):
     second_pass: SecondPassRead | None = None
 
 
+class EntraAuditRead(BaseModel):
+    """Whether the Entra ID audit log can be read, and its collection (tools/entra_audit.py)."""
+
+    # readable | no_permission | licence_required | unavailable; None = not tried yet
+    status: str | None
+    checked_at: datetime | None
+    message: str | None
+    schedule_id: int | None
+    enabled: bool
+    collecting: bool
+    covered_until: datetime | None
+
+
 class CoverageRead(BaseModel):
     azure_keeps_days: int
     at_risk_days_left: int
@@ -99,6 +112,7 @@ class CoverageRead(BaseModel):
     second_pass_subscriptions: int
     second_pass_late_events: int
     second_pass_failed: int
+    entra_audit: EntraAuditRead
 
 
 class JobRead(BaseModel):

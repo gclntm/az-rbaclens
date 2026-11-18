@@ -248,3 +248,9 @@ def test_freshness_and_the_role_catalogue_say_less_to_someone_who_is_not_an_admi
     fresh_marc = app_with_sqlite.get("/api/freshness", headers=as_user("marc-id")).json()
     assert fresh_marc["warnings"] == [] and fresh_marc["last_check"] is None
     assert fresh_marc["access_as_of"] == fresh_admin["access_as_of"]
+
+
+def test_only_admins_may_try_the_entra_audit_log(app_with_sqlite: TestClient, as_user):
+    _world(app_with_sqlite)
+    h = as_user("marc-id")
+    assert app_with_sqlite.post("/api/activity/entra-audit/check", headers=h).status_code == 403

@@ -113,7 +113,7 @@ UI labels in quotes are what the side menu and page headers say.
 | Monthly "Reviews": Keep / Remove / Change / Ask per grant, suggested decision from the advice, finish, CSV export | `/reviews`, `/reviews/:id` | `/api/reviews*` (`POST /api/reviews/open`: admin) | api.md |
 | "To do": changes to make in Azure after a review, closed by the next checks; CSV and a shell script to read, then run | `/todos?status=&show=&round=&view=` | `/api/todos*` | api.md |
 | "Needs a look": findings worklist, tenant-wide, filters, bulk decisions | `/findings?status=&severity=&category=&q=` | `GET /api/findings`, `/api/iam-access/findings/*` | api.md |
-| "Changes": who got or lost access, when and by whom; changes per week | `/changes` | `GET /api/changes`, `GET /api/freshness` | api.md |
+| "Changes": who got or lost access, when and by whom (group members: from the Entra ID audit log, optional); changes per week | `/changes` | `GET /api/changes`, `GET /api/freshness` | api.md, [iam-access.md](iam-access.md#entra-id-audit-log) |
 | "Places": tree + place page (Who can do what · Needs a look · Changes · Activity · All grants) | `/places`, `/places/<ARM path>?tab=&q=` | `/api/scopes/*` (tree, detail, assignments, findings, history, activity, capabilities) | api.md, [iam-access.md](iam-access.md) |
 | "People & apps": list + person page (What they can do · Groups / Members · What they did · Needs a look), "What to do" advice | `/people?q=&type=&level=`, `/people/:id?tab=` | `GET /api/principals`, `GET /api/principals/{id}`, `GET /api/principals/{id}/activity` | api.md |
 | Grant page: who, what, where, since when, given by whom, used or not, advice | `/grants/:grantId` | `GET /api/grants/{id}` | api.md |
@@ -126,7 +126,7 @@ UI labels in quotes are what the side menu and page headers say.
 | What changed between two checks | `/iam-access/diff/:a/:b` | `GET /api/iam-access/scans/{a}/diff/{b}` | iam-access.md |
 | Old snapshot URLs | `/iam-access`, `/iam-access/:id` (redirect to Data & schedules or the place page) | `/api/iam-access/scans*` | iam-access.md |
 | "Activity Log": events (browse, export) | `/events` (linked from Data & schedules) | `/api/activity/events*` | iam-access.md |
-| "Data & schedules": schedules (daily check, hourly Activity Log collection), run now, recent runs, Activity Log coverage | `/admin/data` (`/jobs` redirects) | `/api/jobs`, `/api/schedules*`, `/api/activity/coverage`, `/api/activity/pulls`, `/api/iam-access/scans` | api.md |
+| "Data & schedules": schedules (daily check, hourly Activity Log collection, hourly Entra ID audit log collection once readable), run now, recent runs, Activity Log coverage with the Entra ID audit log's state and **Check now** | `/admin/data` (`/jobs` redirects) | `/api/jobs`, `/api/schedules*`, `/api/activity/coverage`, `/api/activity/entra-audit/check`, `/api/activity/pulls`, `/api/iam-access/scans` | api.md |
 | "Settings": Who is responsible · Advice · Notifications · Credentials · Authentication · Audit log · Database · Changelog | `/settings/*` | `/api/settings/*`, `/api/auth/*`, `/api/audit/*`, `/api/notifications*` | [auth.md](auth.md), deployment.md |
 | Registry rebuild (admin, no UI) | — | `POST /api/settings/registry/rebuild` | api.md |
 
@@ -181,7 +181,7 @@ Tables: `scans`, `role_assignments`, `role_eligibilities`,
 `responsible_suggestions`, `review_rounds`, `review_items`, `todos`,
 `assessments`, `ai_texts`, `notifications`, `job_schedules`,
 `activity_pulls`, `activity_events`, `activity_compacted_days`,
-`azure_credentials`, `auth_settings`, `app_settings`, `audit_events`.
+`directory_audit_events`, `azure_credentials`, `auth_settings`, `app_settings`, `audit_events`.
 
 Conventions: every schema change is an Alembic migration; JSONB via
 `JSON().with_variant(JSONB(), "postgresql")` so tests run on SQLite;

@@ -446,6 +446,21 @@ These roles also cover the Activity Log of the management groups (read
 over `…/managementGroups/<id>/providers/microsoft.insights/eventtypes/
 management/values`), the Tenant Root Group included.
 
+**Who changed a group (optional).** Adding someone to a group is a change
+in Entra ID, which the Activity Log never sees. To say who did it, RBAC Lens
+reads the Entra ID audit log, which needs one more permission: the Microsoft
+Graph *application* permission **AuditLog.Read.All** (read-only), with admin
+consent. In the Entra admin center, open the app registration of
+`sp-rbaclens-reader`, then **API permissions → Add a permission → Microsoft
+Graph → Application permissions → AuditLog.Read.All → Grant admin consent**.
+RBAC Lens tries the log after each check (or with **Check now** under
+Activity Log coverage on Data & schedules) and adds its hourly collection
+once it can read it. Entra keeps the log 7 days on Entra ID Free and
+30 days on P1/P2, so the first collection reads at most that. If Graph
+refuses it because of the tenant's licence, the page says so. Without the
+permission, nothing changes: the Changes page says when a member was first
+seen, not who added them.
+
 It cannot change anything in Azure. Don't reuse an identity that can
 write (a deployment pipeline's, for example).
 

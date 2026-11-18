@@ -6,6 +6,22 @@ carries a version). `make release V=X.Y.Z` turns that heading into
 `## [X.Y.Z] - YYYY-MM-DD`, bumps the version and tags `vX.Y.Z` — see
 [README-MAKE.md](README-MAKE.md) and `scripts/release.sh`.
 
+## 2026-11-18
+
+- **The Changes page can say who added or removed a group member**, and
+  exactly when. Joining a group is a change in Entra ID, which the Azure
+  Activity Log never sees, so RBAC Lens can now read the Entra ID audit log
+  (through Microsoft Graph, every hour) and keep its "Add member to group" and
+  "Remove member from group" entries. It is optional: the identity needs the
+  Graph application permission AuditLog.Read.All (read-only). RBAC Lens tries
+  the log after each check and starts collecting once it can read it; Data &
+  schedules says whether it can, and why not, with **Check now**. A member
+  added to a group nested inside the one that holds access is matched too;
+  a whole group nested into it still shows as "first seen". A change Entra
+  records as made by an app (Teams or Outlook for Microsoft 365 groups,
+  access packages, PIM, the AD sync) names the app. See
+  [iam-access.md](iam-access.md#entra-id-audit-log).
+
 ## [0.32.2] - 2026-11-16
 
 - **The README has a "First steps" section**, from a fresh install to the

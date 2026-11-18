@@ -15,6 +15,7 @@ and plain JSON on the SQLite test engine.
 | Findings | `scan_coverage`, `findings`, `review_decisions` |
 | Registries and changes | `scopes`, `principals`, `access_changes` |
 | Activity Log | `activity_pulls`, `activity_events`, `activity_compacted_days`, `operation_names` |
+| Entra ID audit log | `directory_audit_events` |
 | Reviews and follow-up | `responsibilities`, `responsible_suggestions`, `review_rounds`, `review_items`, `todos`, `assessments`, `notifications`, `ai_texts` |
 | Settings and jobs | `azure_credentials`, `auth_settings`, `app_settings`, `job_schedules`, `audit_events` |
 
@@ -135,9 +136,10 @@ principals           PK id (lowercased object id), display_name, principal_type,
 access_changes       id, occurred_at, first_seen_scan_id → scans (SET NULL),
                      kind (granted | removed | eligible_added | eligible_removed |
                            member_added | member_removed),
-                     source (activity_log | created_on | daily_check),
+                     source (activity_log | created_on | daily_check | entra_audit),
                      scope, scope_name, scope_level, principal_*, role_*, level,
-                     via_group_id, via_group_name, actor_id, actor_name, azure_id,
+                     via_group_id, via_group_name, actor_id, actor_name,
+                     actor_type (user | app, 0040), direct_group_name (0040), azure_id,
                      activity_event_id → activity_events (SET NULL), subject_key, created_at
                      UNIQUE (subject_key, kind, occurred_at); IX activity_event_id (0039)
 ```
@@ -163,14 +165,19 @@ of the same place and writes one `access_changes` row per difference:
 grants, PIM eligibilities (only when both checks read PIM), and group
 members (only for groups both checks read). `source` says how exact the
 time and author are; a `daily_check` row becomes `activity_log` once the
-matching event is pulled. `subject_key` is the grant id for grants and
+matching event is pulled. A group member's row becomes `entra_audit` once
+the Entra ID audit log has its entry: same member, same group or a group
+nested inside it in both checks (named in `direct_group_name`), between the
+two checks.
+A whole group nested into another stays `daily_check`: its entry names the
+nested group, not the members it brings. `subject_key` is the grant id for grants and
 eligibilities, `member:<group>:<member>` for memberships. The feed is
 filled once from the checks on file when it is empty (at startup).
 
 ## Activity Log
 
 ```
-activity_pulls       id, subscription_id (a GUID or "management-groups"),
+activity_pulls       id, subscription_id (a GUID, "management-groups" or "entra-directory"),
                      start_time, end_time, status, started_at, finished_at, error,
                      events_seen, events_persisted, progress_done, progress_message,
                      heartbeat_at, origin, schedule_id, created_at
@@ -205,6 +212,24 @@ operation_names      operation PK (lowercased), provider (IX), display_name,
 - **Operation names**: Azure's display names from provider operations
   metadata (`app/core/operation_names.py`), refreshed after a pull for
   providers missing or older than 7 days.
+
+## Entra ID audit log (0040)
+
+```
+directory_audit_events
+                     id, audit_id (Entra's id, UNIQUE), action (add | remove),
+                     occurred_at (IX), result, group_id, group_name,
+                     member_id (IX), member_type, member_name,
+                     initiator_type (user | app), initiator_id, initiator_name,
+                     raw JSON, created_at
+```
+
+Only the "Add member to group" and "Remove member from group" entries,
+read through Microsoft Graph by an `activity_pulls` row with
+`subscription_id = "entra-directory"` (`app/tools/entra_audit.py`). Ids
+are lowercased, as in `group_memberships`. Never part of the Activity Log:
+no usage findings, not on the Activity page. Whether the log can be read is
+in `app_settings` (`entra_audit`: `status`, `checked_at`, `message`).
 
 ## Reviews and follow-up
 
@@ -313,7 +338,7 @@ for how to change them.
 
 | Setting | Default | Deletes |
 |---|---|---|
-| `EVENT_RETENTION_DAYS` | 120 | Activity Log events (machine activity is folded into daily rows first) |
+| `EVENT_RETENTION_DAYS` | 120 | Activity Log events (machine activity is folded into daily rows first), and the Entra ID audit log's membership entries |
 | `SNAPSHOT_KEEP_PER_SCOPE` | 6 | completed checks beyond the newest N per root scope |
 | `FAILED_SNAPSHOT_RETENTION_DAYS` | 7 | failed checks |
 | `AUDIT_RETENTION_DAYS` | 365 | audit rows |
@@ -372,6 +397,7 @@ always starts on the current schema.
 | 0037  | `job_schedules.paused_at` / `paused_by`; `origin` and `schedule_id` on `scans` and `activity_pulls` |
 | 0038  | `activity_events.event_count` / `first_occurred_at`; `activity_compacted_days` (folding happens in the retention run, not the migration) |
 | 0039  | index on `access_changes.activity_event_id` (deleting events no longer scans the feed) |
+| 0040  | `directory_audit_events`; `access_changes.actor_type` / `direct_group_name`; source `entra_audit` |
 
 ### Migration conventions
 

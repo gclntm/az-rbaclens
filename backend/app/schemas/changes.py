@@ -8,7 +8,7 @@ from pydantic import BaseModel
 ChangeKind = Literal[
     "granted", "removed", "eligible_added", "eligible_removed", "member_added", "member_removed"
 ]
-ChangeSource = Literal["activity_log", "created_on", "daily_check"]
+ChangeSource = Literal["activity_log", "created_on", "daily_check", "entra_audit"]
 
 
 class ChangeRead(BaseModel):
@@ -16,7 +16,8 @@ class ChangeRead(BaseModel):
     occurred_at: datetime
     kind: ChangeKind
     # How exact the time and author are: the Azure event, Azure's createdOn /
-    # createdBy, or "first seen" by a daily check (no author).
+    # createdBy, the Entra ID audit log (group membership), or "first seen"
+    # by a daily check (no author).
     source: ChangeSource
     scope: str
     scope_name: str | None
@@ -31,6 +32,10 @@ class ChangeRead(BaseModel):
     via_group_name: str | None
     actor_id: str | None
     actor_name: str | None
+    # ``app`` when Entra records an app as the author (Teams, access packages, PIM, AD sync).
+    actor_type: str | None = None
+    # The nested group a member was added to or removed from (Entra ID audit log).
+    direct_group_name: str | None = None
     # ``/grants/{grant_id}`` for grant changes; the grant may no longer exist.
     grant_id: str | None
     # The daily check that first saw it.

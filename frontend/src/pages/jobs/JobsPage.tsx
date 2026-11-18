@@ -186,7 +186,11 @@ export default function JobsPage() {
         </div>
       ))}
 
-      <CoveragePanel coverage={coverage} retentionDays={retention?.event_retention_days ?? null} />
+      <CoveragePanel
+        coverage={coverage}
+        retentionDays={retention?.event_retention_days ?? null}
+        onCheckEntraAudit={() => act(() => api.jobs.checkEntraAudit(), "Entra ID audit log checked")}
+      />
 
       <SectionCard
         id="schedules"

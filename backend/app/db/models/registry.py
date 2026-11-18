@@ -86,8 +86,9 @@ class AccessChange(Base):
     Found by comparing each completed check with the previous check of
     the same place. ``source`` says how exact the time and author are:
     ``activity_log`` (the matching Azure event), ``created_on`` (Azure's
-    own ``createdOn`` / ``createdBy`` on the grant), or ``daily_check``
-    (first seen by the check; no author).
+    own ``createdOn`` / ``createdBy`` on the grant), ``entra_audit`` (the
+    Entra ID audit log, for someone joining or leaving a group), or
+    ``daily_check`` (first seen by the check; no author).
     """
 
     __tablename__ = "access_changes"
@@ -115,6 +116,13 @@ class AccessChange(Base):
     via_group_name: Mapped[str | None] = mapped_column(String(500))
     actor_id: Mapped[str | None] = mapped_column(String(255))
     actor_name: Mapped[str | None] = mapped_column(String(500))
+    # ``app`` when Entra records an app as the author (Teams or Outlook for
+    # Microsoft 365 groups, access packages, PIM, the AD sync), ``user`` for a
+    # person; set only from the Entra ID audit log.
+    actor_type: Mapped[str | None] = mapped_column(String(10))
+    # Membership changes from the audit log: the group the member was added
+    # to or removed from, when it is a group nested inside ``via_group``.
+    direct_group_name: Mapped[str | None] = mapped_column(String(500))
     # Azure's role assignment / eligibility schedule id, to match late Activity Log events.
     azure_id: Mapped[str | None] = mapped_column(Text)
     # Indexed: deleting an Activity Log row looks up the changes pointing at it.
@@ -136,7 +144,7 @@ class AccessChange(Base):
             name="ck_access_changes_kind",
         ),
         CheckConstraint(
-            "source IN ('activity_log', 'created_on', 'daily_check')",
+            "source IN ('activity_log', 'created_on', 'daily_check', 'entra_audit')",
             name="ck_access_changes_source",
         ),
     )

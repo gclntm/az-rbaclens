@@ -17,6 +17,10 @@ Without Graph read access, identities show as GUIDs and groups get a
 *Group members unknown* finding: a group's grant can't be judged
 "unused" when its members' activity is unknown. Everything else works.
 
+Optional: the Graph application permission **AuditLog.Read.All** lets
+RBAC Lens read the Entra ID audit log, to say who added or removed a group
+member ([Entra ID audit log](#entra-id-audit-log)).
+
 ## Checks
 
 A check (a "snapshot" in the code) reads every role assignment, PIM
@@ -193,7 +197,9 @@ stays reviewed.
   check closes the to-do when the grant is gone.
 - **Changes** (`/changes`): who got or lost access, when and who did it,
   from the Activity Log when it has the event, else from Azure's own
-  record or the first check that saw it.
+  record or the first check that saw it. Someone joining or leaving a
+  group gets its author from the Entra ID audit log when RBAC Lens can read
+  it (see below).
 - **Report** (`/report`): an assessment of the tenant or one place against
   ISO/IEC 27001:2022 Annex A, printable, with a CSV annex. Admins can save
   it as a baseline for later reports.
@@ -212,6 +218,36 @@ Routine machine activity older than a few days is kept as one row per day
 (caller, operation, resource and outcome, with a count); people's actions,
 access and governance changes, and failures are kept in full. Data-plane
 activity (who read which blob) is not in the Activity Log and not covered.
+
+## Entra ID audit log
+
+Adding someone to a group is a change in Entra ID, not in Azure, so the
+Activity Log never records it. When the identity has **AuditLog.Read.All**,
+RBAC Lens reads the Entra ID audit log through Microsoft Graph every hour
+and keeps its "Add member to group" and "Remove member from group"
+entries, nothing else. On the Changes page, a member who joined or left a
+group that holds access then shows who did it and the exact time, *from the
+Entra ID audit log*:
+
+- the entry must be for the same member, on that group or a group nested
+  inside it (then named: "in *grp-nested*, inside *grp-readers*"), between
+  the two checks that saw the difference;
+- a change Entra records as made by an app shows "by the app …". That is
+  how Entra records a change made through a service, and the person behind
+  it, if any, isn't in the entry: *Microsoft Substrate Management* for a
+  Microsoft 365 group changed from Outlook or Teams, *Microsoft Approval
+  Management* for access packages, *MS-PIM* for PIM for Groups, the Entra
+  Connect sync for a group synced from on-premises Active Directory (the
+  person is then in the on-premises logs);
+- a whole group nested into another brings its members with one entry that
+  names the nested group, not them: those members stay "first seen".
+
+Data & schedules says, under **Activity Log coverage**, whether the log can
+be read, and why not (the permission, or a licence refusal from Graph). RBAC
+Lens tries it after each check, at most once a day while it is refused, and
+**Check now** tries it at once. Its hourly collection is added the first
+time it can be read. Entra keeps the log 7 days (Entra ID Free) or 30 days
+(P1/P2), so changes from before that stay "first seen".
 
 ## Role guide
 

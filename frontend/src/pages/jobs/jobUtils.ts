@@ -4,6 +4,8 @@ import {
   type JobKind,
   type JobSchedule,
   type JobScheduleUpdate,
+  ENTRA_AUDIT,
+  ENTRA_AUDIT_NAME,
   MGMT_GROUPS,
   MGMT_GROUPS_NAME,
   type ScopeNode,
@@ -64,6 +66,7 @@ export function targetDisplay(
 ): { primary: string; secondary: string | null } {
   if (kind === "activity_pull") {
     if (target.toLowerCase() === MGMT_GROUPS) return { primary: MGMT_GROUPS_NAME, secondary: null };
+    if (target.toLowerCase() === ENTRA_AUDIT) return { primary: ENTRA_AUDIT_NAME, secondary: null };
     const name = subNames.get(target.toLowerCase());
     return name ? { primary: name, secondary: target } : { primary: target, secondary: null };
   }

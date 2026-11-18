@@ -23,6 +23,8 @@ function change(over: Partial<AccessChange> = {}): AccessChange {
     via_group_name: null,
     actor_id: "sp",
     actor_name: "sp-terraform",
+    actor_type: null,
+    direct_group_name: null,
     grant_id: "g1",
     check_id: 4,
     ...over,
@@ -52,6 +54,12 @@ describe("change words", () => {
     expect(sourceText(change({ source: "created_on" }))).toBe("by sp-terraform · as recorded by Azure");
     expect(sourceText(change({ source: "daily_check", actor_id: null, actor_name: null }))).toMatch(/^first seen by the daily check/);
     expect(sourceText(change({ source: "daily_check", kind: "member_removed" }))).toMatch(/Entra ID audit log/);
+    const joined = { kind: "member_added", source: "entra_audit", actor_name: "ada@example.org", via_group_name: "grp-readers" } as const;
+    expect(sourceText(change(joined))).toBe("by ada@example.org · from the Entra ID audit log");
+    expect(sourceText(change({ ...joined, actor_type: "app", actor_name: "MS-PIM", direct_group_name: "grp-nested" }))).toBe(
+      "by the app MS-PIM · in grp-nested, inside grp-readers · from the Entra ID audit log",
+    );
+    expect(timeText(change(joined))).not.toMatch(/^~/);
     expect(timeText(change({ source: "daily_check" }))).toMatch(/^~/);
     expect(timeText(change())).not.toMatch(/^~/);
   });

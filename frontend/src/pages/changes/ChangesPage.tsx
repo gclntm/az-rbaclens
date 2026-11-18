@@ -59,7 +59,9 @@ export default function ChangesPage() {
           The Azure Activity Log says who made a change and exactly when; RBAC Lens collects it every hour and keeps
           it for 120 days. The daily check catches everything else (group membership, PIM, access given on
           management groups) and shows when it was first seen. For a new grant, Azure also records who created it and
-          when. Who added someone to a group is in the Entra ID audit log, which RBAC Lens does not read.
+          when. Who added someone to a group, or removed them, comes from the Entra ID audit log once RBAC Lens can
+          read it (the Microsoft Graph permission AuditLog.Read.All); a whole group nested into another stays "first
+          seen".
         </p>
       </SectionCard>
     </>

@@ -29,6 +29,7 @@ vi.mock("@/api/client", async (original) => ({
         azure_keeps_days: 90, at_risk_days_left: 30, subscriptions: covered, second_pass_hours: 48,
         second_pass_finished_at: new Date().toISOString(), second_pass_subscriptions: covered.length,
         second_pass_late_events: 0, second_pass_failed: 0,
+        entra_audit: { status: null, checked_at: null, message: null, schedule_id: null, enabled: false, collecting: false, covered_until: null },
       }),
       deleteSchedule: (id: number) => deleteSchedule(id),
     },

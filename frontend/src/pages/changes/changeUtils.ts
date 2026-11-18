@@ -56,8 +56,15 @@ export function sourceText(c: AccessChange): string {
   const by = c.actor_name ?? (c.actor_id ? "an identity RBAC Lens has not named" : null);
   if (c.source === "activity_log") return by ? `by ${by} · from the Azure Activity Log` : "from the Azure Activity Log";
   if (c.source === "created_on") return by ? `by ${by} · as recorded by Azure` : "as recorded by Azure";
+  if (c.source === "entra_audit") {
+    // An app is how Entra records a change made through a service: Outlook or Teams for
+    // Microsoft 365 groups, access packages, PIM, the sync from on-premises AD.
+    const who = by ? (c.actor_type === "app" ? `by the app ${by}` : `by ${by}`) : null;
+    const where = c.direct_group_name ? `in ${c.direct_group_name}, inside ${c.via_group_name ?? "the group"}` : null;
+    return [who, where, "from the Entra ID audit log"].filter(Boolean).join(" · ");
+  }
   if (c.kind === "member_added" || c.kind === "member_removed") {
-    return "first seen by the daily check · who changed the group is in the Entra ID audit log, not here";
+    return "first seen by the daily check · who changed the group is not known here: see the Entra ID audit log";
   }
   return "first seen by the daily check · the Activity Log may still say who did it";
 }

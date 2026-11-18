@@ -55,7 +55,7 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.activity_targets import MGMT_GROUPS, is_mgmt_groups
+from app.core.activity_targets import ENTRA_AUDIT, MGMT_GROUPS, is_entra_audit, is_mgmt_groups
 from app.core.config import settings
 from app.core.coverage import SECOND_PASS_ORIGIN
 from app.core.jobs import create_pull, create_scan
@@ -99,7 +99,8 @@ def normalize_target(kind: str, raw: str) -> str:
 
     Snapshot targets accept everything the scan form does and are stored
     as the normalised ARM path; pull targets must be a subscription GUID
-    (stored lowercased) or ``management-groups`` (core/activity_targets.py).
+    (stored lowercased), ``management-groups`` or ``entra-directory``
+    (core/activity_targets.py).
     Raises ``ValueError`` on bad input.
     """
     if kind == "snapshot":
@@ -109,9 +110,12 @@ def normalize_target(kind: str, raw: str) -> str:
         value = raw.strip()
         if is_mgmt_groups(value):
             return MGMT_GROUPS
+        if is_entra_audit(value):
+            return ENTRA_AUDIT
         if not looks_like_guid(value):
             raise ValueError(
-                "activity pull target must be a subscription GUID, or management-groups"
+                "activity pull target must be a subscription GUID, management-groups "
+                "or entra-directory"
             )
         return value.lower()
     raise ValueError(f"unknown schedule kind {kind!r}")

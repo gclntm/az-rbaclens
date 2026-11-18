@@ -6,7 +6,7 @@ import type { Coverage } from "@/api/client";
 import { whenText } from "@/components/FreshnessLine";
 import { SectionCard, StatePill } from "@/components/PageTemplate";
 
-import { coverageBar, coveragePill, coverageText, coverageTone, secondPassText } from "./coverageUtils";
+import { coverageBar, coveragePill, coverageText, coverageTone, entraAuditText, secondPassText } from "./coverageUtils";
 
 // Subscriptions that are fine are folded away beyond this many.
 const OK_SHOWN = 3;
@@ -23,8 +23,19 @@ const MISSING_TONE: Record<string, string> = { warn: "bg-(--accent-orange)", dan
  * collected; amber or red is what is still missing at the recent end, with the days left
  * before Azure deletes it. The header says what last night's second pass found.
  */
-export default function CoveragePanel({ coverage, retentionDays }: { coverage: Coverage | null; retentionDays: number | null }) {
+export default function CoveragePanel({
+  coverage,
+  retentionDays,
+  onCheckEntraAudit,
+}: {
+  coverage: Coverage | null;
+  retentionDays: number | null;
+  /** Try the Entra ID audit log now; absent, no button. */
+  onCheckEntraAudit?: () => Promise<unknown>;
+}) {
   const [all, setAll] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const entra = coverage ? entraAuditText(coverage.entra_audit, whenText) : null;
   const rows = coverage?.subscriptions ?? [];
   const attention = rows.filter((c) => c.state !== "ok");
   const fine = rows.filter((c) => c.state === "ok");
@@ -83,6 +94,26 @@ export default function CoveragePanel({ coverage, retentionDays }: { coverage: C
         Azure never records reads or data access.
         {retentionDays !== null && ` RBAC Lens keeps what it collects for ${retentionDays} days.`}
       </p>
+      {coverage && entra && (
+        <p className={cx("my-[1em] flex flex-wrap items-center gap-x-3 gap-y-1", CAPTION_MUTED)}>
+          <span className="font-semibold text-secondary">Entra ID audit log</span>
+          <StatePill tone={entra.tone}>{coverage.entra_audit.status === "readable" ? "read" : "not read"}</StatePill>
+          <span>{entra.text}</span>
+          {coverage.entra_audit.status !== "readable" && onCheckEntraAudit && (
+            <button
+              type="button"
+              className={linkButtonClass(true)}
+              disabled={checking}
+              onClick={() => {
+                setChecking(true);
+                void onCheckEntraAudit().finally(() => setChecking(false));
+              }}
+            >
+              {checking ? "Checking…" : "Check now"}
+            </button>
+          )}
+        </p>
+      )}
     </SectionCard>
   );
 }

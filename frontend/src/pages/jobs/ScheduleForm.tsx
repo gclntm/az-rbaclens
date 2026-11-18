@@ -1,7 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 
 import Button from "@/components/Button";
-import { api, type JobKind, MGMT_GROUPS, MGMT_GROUPS_NAME, type ScopeNode, type SubscriptionNode } from "@/api/client";
+import {
+  api,
+  ENTRA_AUDIT,
+  ENTRA_AUDIT_NAME,
+  type JobKind,
+  MGMT_GROUPS,
+  MGMT_GROUPS_NAME,
+  type ScopeNode,
+  type SubscriptionNode,
+} from "@/api/client";
 import { CAPTION, FORM_FIELD, FORM_ROW, cx } from "@/components/classes";
 import { useToast } from "@/components/Toast";
 
@@ -183,6 +192,7 @@ export default function ScheduleForm({
               </option>
             ))}
             <option value={MGMT_GROUPS}>{MGMT_GROUPS_NAME} (what is done on the groups themselves)</option>
+            <option value={ENTRA_AUDIT}>{ENTRA_AUDIT_NAME} (who adds or removes group members)</option>
           </select>
         </label>
       )}
