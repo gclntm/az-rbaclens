@@ -6,7 +6,7 @@ carries a version). `make release V=X.Y.Z` turns that heading into
 `## [X.Y.Z] - YYYY-MM-DD`, bumps the version and tags `vX.Y.Z` — see
 [README-MAKE.md](README-MAKE.md) and `scripts/release.sh`.
 
-## 2026-11-18
+## [0.35.0] - 2026-11-18
 
 - **Settings › Data kept**: how long each kind of data is kept, on one page,
   with how much is stored now (count, oldest, size) and a preview of what
