@@ -167,7 +167,7 @@ export default function PrincipalAccessTab({ data }: { data: PrincipalPage }) {
                           R
                         </span>
                       )}{" "}
-                      {r.role_type === "CustomRole" && (
+                      {(r.role_type ?? "").endsWith("CustomRole") && (
                         <span className={cx(TAG, TAG_TONE.custom)} title="Custom role">
                           C
                         </span>
@@ -276,6 +276,24 @@ export default function PrincipalAccessTab({ data }: { data: PrincipalPage }) {
               </tbody>
             </table>
           </div>
+        </>
+      )}
+
+      {(data.entra_activations?.length ?? 0) > 0 && (
+        <>
+          <h3 className={cx(SECTION_TITLE, "mt-6")}>Entra roles activated through PIM ({data.entra_activations!.length})</h3>
+          <p className={cx("my-[1em]", CAPTION, "text-quaternary")}>
+            Use of an eligibility, not a change of who has access: each line is one activation, from the Entra ID audit
+            log.
+          </p>
+          <ul className="m-0 list-none p-0">
+            {data.entra_activations!.map((a) => (
+              <li key={`${a.at}-${a.role_id}`} className="border-t border-t-secondary py-1.5">
+                {new Date(a.at).toLocaleString(undefined, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}{" "}
+                · {a.role_name ?? a.role_id}
+              </li>
+            ))}
+          </ul>
         </>
       )}
     </SectionCard>

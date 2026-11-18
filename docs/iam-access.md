@@ -10,8 +10,8 @@ Routes, fields and rules are in [api.md](api.md); tables in
 The stacks sign in as a read-only service principal (see
 [deployment.md](deployment.md#azure-identity-least-privilege)): **Reader**
 on the management groups to check, **Management Group Reader** on the
-Tenant Root Group, and the Entra role **Directory Readers** for names and
-group members in Microsoft Graph. How to set it up:
+Tenant Root Group, and the Entra role **Directory Readers** for names,
+group members and who holds which Entra role in Microsoft Graph. How to set it up:
 [deployment.md](deployment.md#setting-up-the-service-identity).
 
 Without Graph read access, identities show as GUIDs and groups get a
@@ -147,6 +147,67 @@ resource.
 This needs the Activity Log collected for those subscriptions: the hourly
 collection per subscription does it (Data & schedules).
 
+## Entra ID
+
+Some Entra roles lead straight into Azure access: a Global Administrator can
+make themselves User Access Administrator over every subscription, an
+Application Administrator can add a secret to an app that is Owner of one.
+So **Entra ID** is a place of its own, at the top of Places, above the
+Tenant Root Group (`/places/providers/microsoft.aadiam`).
+
+The daily check of the Tenant Root Group reads, through Microsoft Graph,
+who holds which Entra role: standing, eligible through PIM, or activated
+right now, directly or through a group. Its page works like any place's
+(Who can do what, Needs a look, Changes, All grants), without an Activity
+tab (the Activity Log doesn't record Entra actions) and without **Check this
+place now** (the Tenant Root Group's check reads it). Entra roles never flow
+down into Azure places: they are a way in, not a grant there.
+
+An Entra role lands at a level by what its permissions allow:
+
+| Level | Examples |
+|---|---|
+| Can change who has access | Global Administrator, Privileged Role Administrator, Groups / User Administrator (the members of groups that may hold Azure roles), Identity Governance Administrator (access packages) |
+| Can get keys and passwords | Application / Cloud Application Administrator (app secrets), Helpdesk / Authentication / Privileged Authentication Administrator (passwords, sign-in methods), Global Reader and Security Reader (BitLocker recovery keys) |
+| Can change resources | the other administrator roles; Exchange, SharePoint and Teams administrators say "Microsoft 365 group members" |
+| Can only look | Directory Readers, Reports Reader, the reader roles |
+
+A permission limited to objects someone owns doesn't count here. A role
+Microsoft doesn't list shows under **Unknown role, check it**. In the role
+guide, Entra roles carry an **E**.
+
+**Needs a look** on Entra roles:
+
+- *Entra admin role held all the time*: a person holds a role that can
+  change who has access, not through PIM. Break-glass identities (Settings ›
+  Advice) are left out.
+- *An app holds a powerful Entra role*: whoever has its secret can do the
+  same.
+- *Too many Global Administrators*: more than four, standing or eligible;
+  Microsoft advises fewer than five.
+- *Powerful Entra role through a group*: whoever manages its members decides
+  who holds it.
+- *Powerful role held from another tenant*: a partner's group, through
+  delegated admin access (GDAP). Its members are managed in the partner's
+  tenant and can't be seen from yours; the row says "another tenant". RBAC
+  Lens knows it from the tenant the assignment names, or, for a PIM
+  eligibility, because your directory doesn't know the group. The same
+  finding applies to a partner's group holding a powerful Azure role.
+
+Usage findings don't apply: no Entra action is in the Activity Log. The
+grant drawer's command removes an Entra role through Microsoft Graph
+(`az rest --method DELETE …/roleManagement/directory/roleAssignments/<id>`).
+
+With the [Entra ID audit log](#entra-id-audit-log) collected, the Changes
+page says who gave or removed an Entra role, directly or through PIM, and an
+identity's page lists the Entra roles it **activated through PIM**. An
+activation is use of an eligibility, not a change of who has access: it is
+never in the changes feed, for Entra or Azure roles.
+
+Entra ID gets a responsible person (Settings › Who is responsible) and a
+monthly review like any place; the report's privileged-access control
+(ISO/IEC 27001 8.2) counts its standing admin roles.
+
 ## People & apps
 
 `/people` lists every user, group and app any check has seen, with current
@@ -222,11 +283,14 @@ activity (who read which blob) is not in the Activity Log and not covered.
 
 ## Entra ID audit log
 
-Adding someone to a group is a change in Entra ID, not in Azure, so the
-Activity Log never records it. When the identity has **AuditLog.Read.All**,
-RBAC Lens reads the Entra ID audit log through Microsoft Graph every hour
-and keeps its "Add member to group" and "Remove member from group"
-entries, nothing else. On the Changes page, a member who joined or left a
+Adding someone to a group, or giving them an Entra role, is a change in
+Entra ID, not in Azure, so the Activity Log never records it. When the
+identity has **AuditLog.Read.All**, RBAC Lens reads the Entra ID audit log
+through Microsoft Graph every hour and keeps its group membership and Entra
+role entries (given, removed, eligible through PIM, activated), nothing
+else. An Entra role given through PIM is recorded twice, by PIM with the
+person who did it and by the directory with the PIM service: the person
+wins. On the Changes page, a member who joined or left a
 group that holds access then shows who did it and the exact time, *from the
 Entra ID audit log*:
 

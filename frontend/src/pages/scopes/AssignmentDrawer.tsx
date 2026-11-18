@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { linkButtonClass } from "@/components/chips";
 import CloseButton from "@/components/CloseButton";
 import Button from "@/components/Button";
-import { api, type PrincipalPage, type ScopeAssignmentRow } from "@/api/client";
+import { api, isEntraPlace, type PrincipalPage, type ScopeAssignmentRow } from "@/api/client";
 import { CAPTION, CELL_SUB, MONO, TAG, TAG_TONE } from "@/components/classes";
 import { cx } from "@/components/classes";
 import { useGroupMembers } from "@/components/GroupMembersDrawer";
@@ -45,6 +45,15 @@ function quoteArg(value: string): string {
   return `"${value.replace(/(["\\$`])/g, "\\$1")}"`;
 }
 
+const ENTRA_ASSIGNMENTS = "https://graph.microsoft.com/v1.0/roleManagement/directory/roleAssignments";
+
+/** Remove an Entra role through Microsoft Graph: find the assignment's id, then delete it. */
+export function entraRemoveCommand(principalId: string, roleDefinitionId: string): string {
+  const role = roleDefinitionId.split("/").pop() ?? roleDefinitionId;
+  const find = `${ENTRA_ASSIGNMENTS}?$filter=principalId eq '${principalId}' and roleDefinitionId eq '${role}'`;
+  return `az rest --method DELETE --url "${ENTRA_ASSIGNMENTS}/$(az rest --method GET --url ${quoteArg(find)} --query "value[0].id" -o tsv)"`;
+}
+
 /** Side panel explaining one assignment: why it matters, usage, who/what it is. */
 export default function AssignmentDrawer({
   row,
@@ -77,12 +86,14 @@ export default function AssignmentDrawer({
   const subscriptions = principal?.summary.subscriptions ?? 0;
 
   function copyCli() {
-    const cmd = [
-      "az role assignment delete",
-      `--assignee ${quoteArg(row.principal_id)}`,
-      `--role ${quoteArg(row.role_name ?? row.role_definition_id)}`,
-      `--scope ${quoteArg(row.scope)}`,
-    ].join(" ");
+    const cmd = isEntraPlace(row.scope)
+      ? entraRemoveCommand(row.principal_id, row.role_definition_id)
+      : [
+          "az role assignment delete",
+          `--assignee ${quoteArg(row.principal_id)}`,
+          `--role ${quoteArg(row.role_name ?? row.role_definition_id)}`,
+          `--scope ${quoteArg(row.scope)}`,
+        ].join(" ");
     navigator.clipboard
       ?.writeText(cmd)
       .then(() => showToast("Removal command copied — review it before running", "success"))
@@ -189,10 +200,14 @@ export default function AssignmentDrawer({
         <span>
           <RoleLink roleId={row.role_definition_id} roleName={row.role_name} />{" "}
           {row.role_risk === "high" && <span className={cx(TAG, TAG_TONE.risk)}>R</span>}{" "}
-          {row.role_type === "CustomRole" && <span className={cx(TAG, TAG_TONE.custom)}>C</span>}
+          {(row.role_type ?? "").endsWith("CustomRole") && <span className={cx(TAG, TAG_TONE.custom)}>C</span>}
         </span>
         <span className={MUTED_CAPTION}>
-          {row.role_type === "CustomRole" ? "Custom role" : row.role_type === "BuiltInRole" ? "Built-in role" : "Unknown kind of role"}
+          {(row.role_type ?? "").endsWith("CustomRole")
+            ? isEntraPlace(row.scope) ? "Custom Entra role" : "Custom role"
+            : (row.role_type ?? "").endsWith("BuiltInRole")
+              ? isEntraPlace(row.scope) ? "Built-in Entra role" : "Built-in role"
+              : "Unknown kind of role"}
         </span>
         {row.condition_text && (
           <span className={callout(row.condition_kind !== "other")}>

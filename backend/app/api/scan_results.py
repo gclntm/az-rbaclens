@@ -177,7 +177,13 @@ def get_tree(scan_id: int, session: Annotated[Session, Depends(get_session)]) ->
     return roots
 
 
-_LEVEL_ORDER = {"mgmt_group": 0, "subscription": 1, "resource_group": 2, "resource": 3}
+_LEVEL_ORDER = {
+    "directory": -1,
+    "mgmt_group": 0,
+    "subscription": 1,
+    "resource_group": 2,
+    "resource": 3,
+}
 
 
 def _sort_tree(nodes: list[TreeNode]) -> None:

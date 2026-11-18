@@ -59,9 +59,9 @@ it, and schedules keep it current:
 
 | Term | What it reads | How often |
 |------|---------------|-----------|
-| **Check** | Who has which role: every role assignment, PIM eligibility and group membership under one place (management group, subscription, resource group or resource). | Daily for the tenant root, or on demand |
+| **Check** | Who has which role: every role assignment, PIM eligibility and group membership under one place (management group, subscription, resource group or resource). A check of the tenant root also reads who holds which Entra role. | Daily for the tenant root, or on demand |
 | **Activity Log collection** | Who changed what: Azure's control-plane log (writes, deletes, access changes, `listKeys`) per subscription, plus the management groups' log. | Every hour; the first run fetches the last 90 days, all that Azure keeps |
-| **Entra ID audit log collection** (optional) | Who added or removed a group member. Needs the Graph permission AuditLog.Read.All. | Every hour, once the identity can read it |
+| **Entra ID audit log collection** (optional) | Who added or removed a group member, or gave an Entra role. Needs the Graph permission AuditLog.Read.All. | Every hour, once the identity can read it |
 | **Schedule** | Runs a check or a collection by itself. | Pause, edit or *Run now* on **Data & schedules** |
 
 1. **Give it an identity.** A service principal with Reader on the places
@@ -81,7 +81,9 @@ it, and schedules keep it current:
 4. **Start the analysis.** As soon as the check is done:
    - **Home**: what needs a look and the latest changes;
    - **Places**: for each place, *Who can do what* at five levels, from
-     "can change who has access" to "can only look";
+     "can change who has access" to "can only look". **Entra ID**, at the
+     top, shows who holds the Entra roles that lead into Azure, such as
+     Global Administrator;
    - **Needs a look**: findings such as a powerful role given high up, an
      identity that no longer exists, group members unknown, new since the
      previous check;

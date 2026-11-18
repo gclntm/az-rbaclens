@@ -90,6 +90,17 @@ role_definitions       role_definition_id PK (bare GUID, lowercased), role_name,
   grants.
 - **Diff identity** is `(scope, role_definition_id, principal_id)`, not the
   row id: a re-created Azure assignment counts as kept.
+- **Entra roles** (`app/tools/entra_directory.py`) are rows of the same two
+  tables at the place `/providers/microsoft.aadiam` (`scope_level =
+  'directory'`), read by checks of the Tenant Root Group: `role_definition_id`
+  is `/providers/microsoft.aadiam/roleDefinitions/<id>`, `raw` keeps Graph's
+  assignment id (`source: "entra"`, `directoryScopeId`,
+  `principalOrganizationId`); a group of another tenant is typed
+  `ForeignGroup` and its members are not asked for. Their definitions
+  are in `role_definitions` with `role_type` `EntraBuiltInRole` or
+  `EntraCustomRole` and Graph's `rolePermissions` as `permissions`
+  (`app/core/entra_roles.py` reads them). The hierarchy carries the place
+  as a root node, `unread` when Graph refused.
 
 ### Job lifecycle guards (0016)
 
@@ -213,19 +224,22 @@ operation_names      operation PK (lowercased), provider (IX), display_name,
   metadata (`app/core/operation_names.py`), refreshed after a pull for
   providers missing or older than 7 days.
 
-## Entra ID audit log (0040)
+## Entra ID audit log (0040, 0041)
 
 ```
 directory_audit_events
-                     id, audit_id (Entra's id, UNIQUE), action (add | remove),
-                     occurred_at (IX), result, group_id, group_name,
+                     id, audit_id (Entra's id, UNIQUE),
+                     kind (group | role | eligible | activation, 0041),
+                     action (add | remove), occurred_at (IX), result,
+                     group_id (NULL for a role entry), group_name, role_id (0041),
                      member_id (IX), member_type, member_name,
                      initiator_type (user | app), initiator_id, initiator_name,
                      raw JSON, created_at
 ```
 
-Only the "Add member to group" and "Remove member from group" entries,
-read through Microsoft Graph by an `activity_pulls` row with
+Only group membership entries and Entra role entries (given, removed,
+eligible through PIM, activated; the list is `ACTIVITIES`), read through
+Microsoft Graph by an `activity_pulls` row with
 `subscription_id = "entra-directory"` (`app/tools/entra_audit.py`). Ids
 are lowercased, as in `group_memberships`. Never part of the Activity Log:
 no usage findings, not on the Activity page. Whether the log can be read is
@@ -398,6 +412,7 @@ always starts on the current schema.
 | 0038  | `activity_events.event_count` / `first_occurred_at`; `activity_compacted_days` (folding happens in the retention run, not the migration) |
 | 0039  | index on `access_changes.activity_event_id` (deleting events no longer scans the feed) |
 | 0040  | `directory_audit_events`; `access_changes.actor_type` / `direct_group_name`; source `entra_audit` |
+| 0041  | `directory_audit_events.kind` / `role_id`; `group_id` optional (Entra role entries) |
 
 ### Migration conventions
 

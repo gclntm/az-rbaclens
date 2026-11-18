@@ -23,6 +23,8 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.core.advice_texts import (
+    ENTRA_PIM_PORTAL,
+    ENTRA_PORTAL,
     ORDER,
     PIM_PORTAL,
     RULES,
@@ -31,6 +33,7 @@ from app.core.advice_texts import (
     delete_command,
 )
 from app.core.current_view import CurrentView, current_view, grant_id
+from app.core.entra_roles import ENTRA_PLACE
 from app.core.findings import BROAD_LEVELS
 from app.core.responsible import Resolved, resolve_all
 from app.core.timeutil import as_utc
@@ -60,7 +63,13 @@ _LEVEL_WORDS = {
     "resource_group": "resource group",
     "resource": "resource",
 }
-_SCOPE_RANK = {"mgmt_group": 0, "subscription": 1, "resource_group": 2, "resource": 3}
+_SCOPE_RANK = {
+    "directory": -1,
+    "mgmt_group": 0,
+    "subscription": 1,
+    "resource_group": 2,
+    "resource": 3,
+}
 _DONE = ("accepted_risk", "resolved")  # findings that no longer drive advice
 NO_ACTION = ("R00 fine", "R15 limited", "R16 microsoft-app")
 REDUNDANT = {"R07 redundant", "R08 direct-user"}
@@ -205,7 +214,11 @@ def _chain(ctx: AdviceContext, ra: RoleAssignment) -> list[str]:
 def _fired(ctx: AdviceContext, f: _Facts) -> list[tuple[str, str, dict[str, Any]]]:
     """``[(rule id, why, extra)]`` for every rule that fires on the grant."""
     ra, out = f.ra, []
-    where = f"on the {_LEVEL_WORDS.get(ra.scope_level, 'place')} {f.place}"
+    where = (
+        "in Entra ID"
+        if ra.scope == ENTRA_PLACE
+        else f"on the {_LEVEL_WORDS.get(ra.scope_level, 'place')} {f.place}"
+    )
     unused = "unused" in f.findings
 
     def fire(rule: str, why: str, **extra: Any) -> None:
@@ -313,7 +326,11 @@ def _fired(ctx: AdviceContext, f: _Facts) -> list[tuple[str, str, dict[str, Any]
         days=ctx.settings.new_days
     )
     if "drift_added" in f.findings or (new and not ra.created_by):
-        giver = ra.created_by_name or "someone RBAC Lens could not identify"
+        giver = ra.created_by_name or (
+            "someone: the Changes page names them once the Entra ID audit log is collected"
+            if ra.scope == ENTRA_PLACE
+            else "someone RBAC Lens could not identify"
+        )
         fire(
             "R12 new-unexplained",
             f"Given recently by {giver}. Check there is a reason for it, such as a change request.",
@@ -350,12 +367,20 @@ def _place_notes(ctx: AdviceContext, f: _Facts, fire: Any) -> None:
 def _how(f: _Facts, rule: str, extra: dict[str, Any]) -> tuple[list[str], list[str]]:
     ra = f.ra
     action = RULES[rule].action
-    delete = delete_command(ra.principal_id, f.role, ra.scope)
-    portal = f"Or in the Azure portal: {f.place} › Access control (IAM) › Role assignments."
+    entra = ra.scope == ENTRA_PLACE
+    delete = delete_command(
+        ra.principal_id, f.role, ra.scope, (ra.raw or {}).get("id") if entra else None
+    )
+    portal = (
+        ENTRA_PORTAL.format(role=f.role)
+        if entra
+        else f"Or in the Azure portal: {f.place} › Access control (IAM) › Role assignments."
+    )
     if action == "remove":
         return ["Remove the grant with the command below.", portal], [delete]
     if action == "pim":
-        steps = [PIM_PORTAL.format(place=f.place, role=f.role), "Then remove the standing grant:"]
+        pim_portal = ENTRA_PIM_PORTAL if entra else PIM_PORTAL
+        steps = [pim_portal.format(place=f.place, role=f.role), "Then remove the standing grant:"]
         if rule == "R05 keys-broad":
             steps.insert(
                 0,

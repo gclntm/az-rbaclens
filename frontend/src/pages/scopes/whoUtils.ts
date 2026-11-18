@@ -103,14 +103,19 @@ export type StatusTag = { text: string; tone: "good" | "warn" | "muted" } | null
 
 const DAY = 86_400_000;
 
-/** One tag per row, only when it's worth reading. */
-export function statusTag(identity: CapabilityIdentity, now: Date = new Date()): StatusTag {
+/**
+ * One tag per row, only when it's worth reading. On Entra ID (``entra``) there is no
+ * usage to tell: the Activity Log doesn't record Entra actions.
+ */
+export function statusTag(identity: CapabilityIdentity, now: Date = new Date(), entra = false): StatusTag {
   if (identity.on_request) return { text: "on request", tone: "warn" };
+  if (identity.principal_type === "ForeignGroup") return { text: "another tenant", tone: "warn" };
   if (identity.kind === "group") {
     if (identity.member_count === null) return { text: "members unknown", tone: "warn" };
     if (identity.member_count === 0) return { text: "empty group", tone: "muted" };
     return null;
   }
+  if (entra) return null;
   if (!identity.last_activity_at) return { text: "no change recorded", tone: "muted" };
   const days = Math.floor((now.getTime() - new Date(identity.last_activity_at).getTime()) / DAY);
   if (days > 90) return { text: "no change in 90 days", tone: "muted" };

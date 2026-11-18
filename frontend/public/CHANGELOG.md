@@ -6,6 +6,34 @@ carries a version). `make release V=X.Y.Z` turns that heading into
 `## [X.Y.Z] - YYYY-MM-DD`, bumps the version and tags `vX.Y.Z` — see
 [README-MAKE.md](README-MAKE.md) and `scripts/release.sh`.
 
+## 2026-11-18
+
+- **Entra ID is a place of its own**, at the top of Places: who holds which
+  Entra role, standing, eligible through PIM or activated, directly or
+  through a group. Some Entra roles lead straight into Azure access (a
+  Global Administrator can make themselves User Access Administrator over
+  every subscription), so they are on the same five levels as Azure roles,
+  by what their permissions allow. The daily check of the Tenant Root Group
+  reads them; the Directory Readers role the identity already has is
+  enough. See [iam-access.md](iam-access.md#entra-id).
+- **Needs a look on Entra roles:** an admin role held all the time instead
+  of through PIM (break-glass identities left out), an app holding a
+  powerful role, more than four Global Administrators, a powerful role
+  through a group.
+- **A powerful role held by a partner's group from another tenant**
+  (delegated admin access, GDAP), Azure or Entra, needs a look: its members
+  can't be seen from your tenant. Such a group is no longer reported as an
+  identity that no longer exists, nor its access as unused. The advice suggests PIM; the to-dos remove an Entra role
+  through Microsoft Graph.
+- **The Changes page says who gave or removed an Entra role**, directly or
+  through PIM, from the Entra ID audit log, and an identity's page lists the
+  Entra roles it activated through PIM.
+- **A PIM activation is no longer a change.** A check that ran while someone
+  had activated a role, Entra or Azure, reported it as given, then removed
+  the next day.
+- Entra ID gets a responsible person and a monthly review; the report's
+  privileged-access control counts its standing admin roles.
+
 ## [0.33.0] - 2026-11-18
 
 - **The Changes page can say who added or removed a group member**, and

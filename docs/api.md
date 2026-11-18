@@ -99,6 +99,14 @@ a subscription it covers, and on demand (`app/core/findings.py`).
 | `redundant` | the same principal holds a broader-or-equal role above |
 | `membership_unknown` | group whose transitive members could not be read |
 | `drift_added` | not in the previous completed check of the same root |
+| `foreign_group` | a group of another tenant (a partner, through delegated admin access; principal type `ForeignGroup`) holds a high-risk role, Azure or Entra. Its name and members can't be read, so it never gets `unresolved_principal` or usage findings |
+| `entra_standing_admin` | a person holds, not through PIM, an Entra role that can change who has access (break-glass identities left out) |
+| `entra_app_privileged` | an app holds an Entra role that can change who has access or get keys and passwords |
+| `entra_too_many_global_admins` | more than four identities hold Global Administrator, standing or eligible |
+| `entra_role_via_group` | such an Entra role comes through a group |
+
+Entra roles (the place `/providers/microsoft.aadiam`) get only the four
+`entra_*` categories and `foreign_group`: no usage is recorded for them (`app/core/entra_findings.py`).
 
 A finding's **fingerprint** is `sha256(scope | role GUID | principal |
 category)[:40]`: stable across checks, so a decision carries over.
@@ -133,7 +141,7 @@ completed check that recorded them.
 | `GET /scopes/capabilities?scope=&inside_limit=30` | *Who can do what*: each identity once, at its strongest level (below), with its grants, eligibilities, `keys_for`, `member_count`; `inside` lists child places that give someone more; `pim` summarises what PIM found. |
 | `GET /scopes/activity?scope=&most_active_limit=10` | Activity Log per subscription under the place, the owning check's coverage (attributed and unattributed callers), and the most active grants. |
 | `GET /principals?q=&principal_type=&limit=100` | Identity registry search, with `assignment_count`, `group_count`, `last_activity_at`. |
-| `GET /principals/{id}?members_limit=200` | The identity page: current grants (direct and through groups), `eligible`, `groups`, `members` (groups), findings and `summary`. 404 when no check has seen it. |
+| `GET /principals/{id}?members_limit=200` | The identity page: current grants (direct and through groups, Entra roles included), `eligible`, `groups`, `members` (groups), findings, `summary`, and `entra_activations` (Entra roles it activated through PIM, from the Entra ID audit log: `at`, `role_id`, `role_name`). 404 when no check has seen it. |
 | `GET /principals/{id}/activity?days=90&recent_limit=25` | Its own Activity Log events, matched on `caller_oid` (a group: its members'). |
 | `GET /grants/{grant_id}` | One current grant in plain words: who, role, level and `powers`, where, origin, PIM, condition, coverage, findings, advice, and `review` when this month's round covers it. 404 when the latest check does not have it. |
 | `GET /search?q=&limit=8` | ⌘K: places, identities and roles, exact → prefix → substring. Under 2 characters: empty. |
@@ -188,10 +196,12 @@ newest first. `given` covers `granted`, `eligible_added`, `member_added`;
 `removed` the opposite three. Returns `total`, `items` (one page), counts
 `given` / `removed` / `powerful` before `direction` and `powerful_only`,
 and `weeks[]` per ISO week. `items[].source` is `activity_log` (exact, with
-author), `created_on` (Azure's createdOn / createdBy), `entra_audit` (someone
-joining or leaving a group, from the Entra ID audit log) or `daily_check`
-(first seen, no author). With `entra_audit`, `actor_type` is `user` or `app`
-(a service: sync, dynamic membership, PIM) and `direct_group_name` names the
+author), `created_on` (Azure's or Entra's own record), `entra_audit` (someone
+joining or leaving a group, or an Entra role given or removed, from the
+Entra ID audit log) or `daily_check` (first seen, no author). PIM
+activations are never changes. With `entra_audit`, `actor_type` is `user` or
+`app` (Entra records an app as the author: Teams or Outlook for Microsoft 365
+groups, access packages, PIM, the AD sync) and `direct_group_name` names the
 nested group the member was added to or removed from, when it isn't the
 group that holds access.
 

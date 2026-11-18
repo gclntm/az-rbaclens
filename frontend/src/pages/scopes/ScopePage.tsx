@@ -5,6 +5,7 @@ import { copyButtonClass } from "@/components/chips";
 import Button from "@/components/Button";
 import {
   api,
+  isEntraPlace,
   type ResponsibleOf,
   type ScopeAssignments,
   type ScopeDetail,
@@ -168,6 +169,7 @@ export default function ScopePage() {
   }
 
   const { scope } = detail;
+  const entra = isEntraPlace(scope.id);
   const latest = scope.latest_scan;
   const fresh = freshnessOf(latest?.age_days);
   const effective = assignments.counts.direct + assignments.counts.inherited;
@@ -194,9 +196,12 @@ export default function ScopePage() {
           !isRestricted(me) && (
             <>
               {latest && <DownloadLink href={api.iam.exportUrl(latest.id, "csv")}>Export CSV</DownloadLink>}
-              <Button variant="primary" size="sm" type="button" onClick={refreshSnapshot} disabled={starting}>
-                {starting ? "Starting…" : "Check this place now"}
-              </Button>
+              {/* Entra roles are read by the check of the Tenant Root Group, not on their own. */}
+              {!entra && (
+                <Button variant="primary" size="sm" type="button" onClick={refreshSnapshot} disabled={starting}>
+                  {starting ? "Starting…" : "Check this place now"}
+                </Button>
+              )}
             </>
           )
         }
@@ -239,7 +244,8 @@ export default function ScopePage() {
       </StatusTiles>
 
       <TabNav label="Place sections">
-        {(Object.keys(TAB_LABEL) as ScopeTab[]).map((t) => (
+        {/* No Activity tab on Entra ID: the Activity Log doesn't record Entra actions. */}
+        {(Object.keys(TAB_LABEL) as ScopeTab[]).filter((t) => !(entra && t === "activity")).map((t) => (
           <a
             key={t}
             href={scopeHref(scope.id, t)}

@@ -50,7 +50,8 @@ from app.db.models import (
 )
 from app.schemas.findings import ReviewDecisionRead, finding_status
 
-BROAD_LEVELS = frozenset({"mgmt_group", "subscription"})
+# Entra ID (``directory``) counts: its roles apply to the whole tenant (core/findings.py).
+BROAD_LEVELS = frozenset({"directory", "mgmt_group", "subscription"})
 _IN_CHUNK = 500
 
 

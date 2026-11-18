@@ -92,7 +92,8 @@ export type HealthResponse = {
 };
 
 export type ScanStatus = "pending" | "running" | "done" | "failed";
-export type ScopeLevel = "mgmt_group" | "subscription" | "resource_group" | "resource";
+/** "directory": the Entra ID place, above the Tenant Root Group (Entra roles). */
+export type ScopeLevel = "directory" | "mgmt_group" | "subscription" | "resource_group" | "resource";
 
 export type Scan = {
   id: number;
@@ -614,6 +615,9 @@ export type RetentionRun = {
 };
 
 /** The Activity Log target that stands for the logs of all management groups (backend: core/activity_targets.py). */
+/** Entra ID as a place, above the Tenant Root Group: who holds which Entra role (core/entra_roles.py). */
+export const ENTRA_PLACE = "/providers/microsoft.aadiam";
+export const isEntraPlace = (scope: string | null | undefined) => (scope ?? "").toLowerCase() === ENTRA_PLACE;
 export const MGMT_GROUPS = "management-groups";
 export const MGMT_GROUPS_NAME = "Management groups";
 /** The Entra ID audit log: who adds or removes group members (core/activity_targets.py). */
@@ -947,6 +951,8 @@ export type PrincipalPage = {
   findings: CurrentFinding[];
   /** "What to do": this identity's own grants, one line per playbook rule. */
   advice?: IdentityAdvice | null;
+  /** Entra roles it activated through PIM, newest first (from the Entra ID audit log). */
+  entra_activations?: { at: string; role_id: string; role_name: string | null }[];
 };
 
 export type PrincipalActivity = {

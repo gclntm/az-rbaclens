@@ -21,6 +21,8 @@ from tests.test_coverage import *  # noqa: F403
 from tests.test_csv_safe import *  # noqa: F403
 from tests.test_database import *  # noqa: F403
 from tests.test_entra_audit import *  # noqa: F403
+from tests.test_entra_place import *  # noqa: F403
+from tests.test_entra_roles import *  # noqa: F403
 from tests.test_findings import *  # noqa: F403
 from tests.test_grant_origin import *  # noqa: F403
 from tests.test_grants import *  # noqa: F403

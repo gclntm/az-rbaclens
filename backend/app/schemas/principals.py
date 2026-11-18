@@ -80,6 +80,15 @@ class PrincipalSummary(BaseModel):
     eligible: int = 0
 
 
+class EntraActivation(BaseModel):
+    """One PIM activation of an Entra role, from the Entra ID audit log: use of an
+    eligibility, not a change of who has access."""
+
+    at: datetime
+    role_id: str
+    role_name: str | None
+
+
 class PrincipalPage(BaseModel):
     principal: PrincipalRead
     summary: PrincipalSummary
@@ -98,6 +107,8 @@ class PrincipalPage(BaseModel):
     findings: list[CurrentFindingRead]
     # "What to do": the identity's own grants, grouped by rule (core/advice.py).
     advice: IdentityAdvice | None = None
+    # Entra roles it activated through PIM, newest first (Entra ID audit log, when collected).
+    entra_activations: list[EntraActivation] = []
 
 
 class OperationCount(BaseModel):

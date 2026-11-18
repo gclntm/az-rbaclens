@@ -252,7 +252,7 @@ export default function ScopeAccessTab({
                             R
                           </span>
                         )}{" "}
-                        {r.role_type === "CustomRole" && (
+                        {(r.role_type ?? "").endsWith("CustomRole") && (
                           <span className={cx(TAG, TAG_TONE.custom)} title="Custom role">
                             C
                           </span>

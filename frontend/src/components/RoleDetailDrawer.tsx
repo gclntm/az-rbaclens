@@ -133,7 +133,9 @@ function RoleDetailBody({
   const learnMoreHref =
     detail.role_type === "BuiltInRole"
       ? "https://learn.microsoft.com/azure/role-based-access-control/built-in-roles"
-      : null;
+      : detail.role_type === "EntraBuiltInRole"
+        ? "https://learn.microsoft.com/entra/identity/role-based-access-control/permissions-reference"
+        : null;
 
   return (
     <>
@@ -142,7 +144,7 @@ function RoleDetailBody({
           <dt>Type</dt>
           <dd>
             <span
-              className={cx(BADGE, detail.role_type === "CustomRole" && BADGE_TONE.custom)}
+              className={cx(BADGE, (detail.role_type ?? "").endsWith("CustomRole") && BADGE_TONE.custom)}
             >
               {detail.role_type ?? "—"}
             </span>

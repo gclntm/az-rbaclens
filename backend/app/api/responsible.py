@@ -34,7 +34,8 @@ from app.schemas.responsible import (
 router = APIRouter(tags=["responsible"])
 
 Admin = Annotated[dict[str, Any] | None, Depends(require_admin)]
-_TREE_LEVELS = ("mgmt_group", "subscription", "resource_group")
+# Entra ID (``directory``) too: its roles are reviewed by a responsible person like any place.
+_TREE_LEVELS = ("directory", "mgmt_group", "subscription", "resource_group")
 
 
 def _read(r: Responsibility | None) -> ResponsibleRead | None:

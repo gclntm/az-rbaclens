@@ -85,7 +85,9 @@ class Report(BaseModel):
     grants: int
     summary: list[str]  # the five things that matter most, as sentences
     controls: list[ReportControl]
-    privileged: list[ReportGrant]  # change access or keys, on a management group or subscription
+    privileged: list[
+        ReportGrant
+    ]  # change access or keys, on Entra ID, a management group or subscription
     break_glass: list[str]
     microsoft_apps: int  # grants held by Microsoft's own apps (not counted as privileged risk)
     identities_section: dict[str, list[ReportGrant]]  # orphans, guests, unknown_members

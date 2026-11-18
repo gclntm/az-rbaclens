@@ -12,7 +12,7 @@ with v(x) as (
   union select actor_name from access_changes union select via_group_name from access_changes
   union select name from scopes
   union select scope_name from role_assignments
-  union select role_name from role_definitions where role_type <> 'BuiltInRole'
+  union select role_name from role_definitions where role_type not in ('BuiltInRole', 'EntraBuiltInRole')
   union select tenant_id from auth_settings union select client_id from auth_settings
   union select tenant_id from azure_credentials union select client_id from azure_credentials
   union select subscription_id from activity_pulls

@@ -100,7 +100,7 @@ def run_pull(pull_id: int) -> None:
             pull.events_persisted = persisted
             pull.heartbeat_at = datetime.now(UTC)
             pull.progress_message = (
-                f"Done — {persisted} new membership changes ({seen - persisted} on file already)"
+                f"Done — {persisted} new audit entries ({seen - persisted} on file already)"
                 if entra
                 else f"Done — {persisted} new events ({seen - persisted} duplicates skipped)"
             )

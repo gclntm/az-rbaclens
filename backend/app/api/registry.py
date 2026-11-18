@@ -32,7 +32,13 @@ from app.schemas.registry import (
 router = APIRouter(tags=["registry"])
 admin_router = APIRouter(prefix="/settings/registry", tags=["registry"])
 
-_LEVEL_RANK = {"mgmt_group": 0, "subscription": 1, "resource_group": 2, "resource": 3}
+_LEVEL_RANK = {
+    "directory": -1,
+    "mgmt_group": 0,
+    "subscription": 1,
+    "resource_group": 2,
+    "resource": 3,
+}
 
 
 def normalise_scope_param(raw: str) -> str:

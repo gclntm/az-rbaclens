@@ -96,7 +96,7 @@ def test_entries_ask_for_the_window_and_the_two_activities_and_follow_pages():
     got = list(ea.entries(graph, NOW - timedelta(hours=1), NOW))
     assert [e["id"] for e in got] == ["a", "b"]
     assert "activityDateTime ge 2026-11-18T11:00:00Z" in graph.asked[0]
-    assert "activityDisplayName eq 'Remove member from group'" in graph.asked[0]
+    assert "category eq 'GroupManagement' or category eq 'RoleManagement'" in graph.asked[0]
     assert graph.asked[1] == f"{ea.GRAPH}/v1.0/next"
 
 
@@ -124,7 +124,7 @@ def test_a_window_older_than_entra_keeps_starts_at_the_earliest_time_allowed():
     got = list(ea.entries(graph, NOW - timedelta(days=40), NOW))
     assert [e["id"] for e in got] == ["a"]
     assert "activityDateTime ge 2026-10-18T00:01:00Z" in graph.asked[1]
-    assert "activityDisplayName eq" in graph.asked[1]  # still the narrow filter
+    assert "category eq" in graph.asked[1]  # still the narrow filter
     # A window entirely before it: nothing to read, no error.
     old = _Graph(too_old)
     assert (

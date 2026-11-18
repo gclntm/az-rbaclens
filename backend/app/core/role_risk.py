@@ -85,6 +85,15 @@ def risk_reasons(permissions: list[dict[str, Any]] | None) -> list[str]:
     """
     if not permissions:
         return []
+    from app.core import entra_roles
+
+    if entra_roles.is_entra(permissions):
+        level, gives = entra_roles.level_of(permissions)
+        if level == "access":
+            return [f"can change who has access in Entra ID ({', '.join(gives)})"]
+        if level == "keys":
+            return [f"can get in as someone or something else ({', '.join(gives)})"]
+        return []
     seen: dict[str, None] = {}
     for perm in permissions:
         for key in ("actions", "dataActions"):
@@ -135,6 +144,10 @@ def classify_permissions(permissions: list[dict[str, Any]] | None) -> str | None
     """
     if not permissions:
         return None
+    from app.core import entra_roles
+
+    if entra_roles.is_entra(permissions):
+        return "high" if entra_roles.is_high_risk(permissions) else None
     for perm in permissions:
         for key in ("actions", "dataActions"):
             for action in perm.get(key) or []:

@@ -10,6 +10,7 @@ import re
 import shlex
 from dataclasses import dataclass
 
+from app.core.entra_roles import ENTRA_PLACE
 from app.schemas.advice import Action, SuggestedDecision, Weight
 
 # ISO/IEC 27001:2022 Annex A controls named by the rules and the report.
@@ -187,8 +188,32 @@ def comment_text(value: str) -> str:
     return _CONTROL.sub(" ", value)
 
 
-def delete_command(principal_id: str, role: str, scope: str) -> str:
+ENTRA_ASSIGNMENTS = "https://graph.microsoft.com/v1.0/roleManagement/directory/roleAssignments"
+ENTRA_PORTAL = "Or in the Entra admin center: Roles and administrators › {role} › Assignments."
+ENTRA_PIM_PORTAL = (
+    "Entra ID › Privileged Identity Management › Microsoft Entra roles › Roles › "
+    "{role} › Add assignments › Assignment type: Eligible"
+)
+
+
+def delete_command(
+    principal_id: str, role: str, scope: str, entra_assignment_id: str | None = None
+) -> str:
+    if scope == ENTRA_PLACE:
+        return entra_delete_command(entra_assignment_id, principal_id, role)
     return f"az role assignment delete --assignee {_q(principal_id)} --role {_q(role)} --scope {_q(scope)}"
+
+
+def entra_delete_command(assignment_id: str | None, principal_id: str, role: str) -> str:
+    """Remove an Entra role assignment through Microsoft Graph (``az rest``).
+
+    Without the assignment's id (an older record), a comment says where to do
+    it instead: Graph deletes only by id.
+    """
+    if assignment_id:
+        return f"az rest --method DELETE --url {_q(f'{ENTRA_ASSIGNMENTS}/{assignment_id}')}"
+    who = comment_text(principal_id)
+    return f"# Entra admin center › Roles and administrators › {comment_text(role)} › Assignments: remove {who}"
 
 
 _CLI_TYPE = {"User": "User", "Group": "Group", "ForeignGroup": "ForeignGroup"}

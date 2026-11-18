@@ -32,8 +32,9 @@ from sqlalchemy.orm import Session
 
 from app.core.advice import AdviceContext, advise_grant
 from app.core.advice import context as advice_context
-from app.core.advice_texts import delete_command
+from app.core.advice_texts import delete_command, entra_delete_command
 from app.core.current_view import CurrentView, current_view, grant_id, owner_of
+from app.core.entra_roles import ENTRA_PLACE
 from app.core.notify import enqueue
 from app.core.responsible import Resolved, resolve_all
 from app.core.timeutil import as_utc
@@ -475,6 +476,10 @@ def accept_advice(
 
 def remove_command(item: ReviewItem) -> str:
     """A ready-to-run Azure CLI command; RBAC Lens never runs it."""
+    if item.scope == ENTRA_PLACE:
+        return entra_delete_command(
+            item.azure_id, item.principal_id, item.role_name or item.role_definition_id
+        )
     if item.azure_id:
         return f"az role assignment delete --ids {shlex.quote(item.azure_id)}"
     return delete_command(item.principal_id, item.role_name or item.role_definition_id, item.scope)

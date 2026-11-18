@@ -114,6 +114,15 @@ describe("statusTag", () => {
     expect(statusTag(identity({ last_activity_at: "2026-10-20T08:00:00Z" }), NOW)).toEqual({ text: "changed 3 d ago", tone: "good" });
     expect(statusTag(identity({ last_activity_at: "2026-05-01T08:00:00Z" }), NOW)?.text).toBe("no change in 90 days");
   });
+
+  it("says nothing about usage on Entra ID, and names a partner's group", () => {
+    expect(statusTag(identity(), NOW, true)).toBeNull();
+    expect(statusTag(identity({ last_activity_at: "2026-10-23T08:00:00Z" }), NOW, true)).toBeNull();
+    expect(statusTag(identity({ kind: "group", principal_type: "ForeignGroup", member_count: null }), NOW, true)).toEqual({
+      text: "another tenant",
+      tone: "warn",
+    });
+  });
 });
 
 describe("summarySentence and levelCounts", () => {

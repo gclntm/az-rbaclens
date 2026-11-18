@@ -39,6 +39,7 @@ from sqlalchemy.orm import Session
 
 from app.core.activity_targets import MGMT_GROUP_PREFIX, is_mgmt_groups
 from app.core.capabilities import LEVEL_RANK, UNKNOWN, classify
+from app.core.entra_roles import ENTRA_PLACE
 from app.core.findings import grant_fingerprint, previous_done_scan
 from app.core.timeutil import as_utc
 from app.db.models import (
@@ -258,6 +259,12 @@ def _change(kind: str, g: _Grant, level: str, scan: Scan, **extra: Any) -> Acces
     )
 
 
+def _read_entra(scan: Scan) -> bool:
+    """Did this check read the Entra ID place (in its hierarchy, not refused)?"""
+    node = (scan.hierarchy or {}).get(ENTRA_PLACE)
+    return isinstance(node, dict) and not node.get("unread")
+
+
 def changes_between(session: Session, prev: Scan, scan: Scan) -> list[AccessChange]:
     """The changes that explain the difference between two checks of one place."""
     seen_at = as_utc(scan.finished_at) or datetime.now(UTC)
@@ -277,11 +284,21 @@ def changes_between(session: Session, prev: Scan, scan: Scan) -> list[AccessChan
             if not any(g.scope == u or g.scope.startswith(u + "/") for u in unread)
         ]
 
+    # Entra ID read for the first time (after an upgrade, or once Graph stops
+    # refusing): what was always there is not news. Report its changes from the
+    # second check that reads it.
+    if not _read_entra(prev) or not _read_entra(scan):
+        added = [g for g in added if g.scope != ENTRA_PLACE]
+        removed = [g for g in removed if g.scope != ENTRA_PLACE]
+
     pim = prev.eligibility_status in _PIM_READ and scan.eligibility_status in _PIM_READ
     old_e = _eligibilities(session, prev.id) if pim else {}
     new_e = _eligibilities(session, scan.id) if pim else {}
     e_added = [new_e[k] for k in new_e.keys() - old_e.keys()]
     e_removed = [old_e[k] for k in old_e.keys() - new_e.keys()]
+    if not _read_entra(prev) or not _read_entra(scan):
+        e_added = [g for g in e_added if g.scope != ENTRA_PLACE]
+        e_removed = [g for g in e_removed if g.scope != ENTRA_PLACE]
 
     levels = _levels(
         session,
@@ -357,6 +374,7 @@ def changes_between(session: Session, prev: Scan, scan: Scan) -> list[AccessChan
         )
 
     out.extend(_membership_changes(session, prev, scan, old, new, levels, seen_at))
+    _apply_role_audits(session, out, prev_at - EVENT_SLACK, seen_at)
 
     names = _names(session, {c.actor_id for c in out if c.actor_id and not c.actor_name})
     for c in out:
@@ -462,7 +480,7 @@ def _apply_directory_audits(
             .where(DirectoryAuditEvent.occurred_at >= since)
             .where(DirectoryAuditEvent.occurred_at <= until)
         ).all():
-            if (ev.result or "success").lower() == "success":
+            if ev.kind == "group" and (ev.result or "success").lower() == "success":
                 events[(ev.member_id, ev.action)].append(ev)
     updated = 0
     for c in wanted:
@@ -486,6 +504,81 @@ def _apply_directory_audits(
     return updated
 
 
+# How close the directory's own record of a PIM activation (or its expiry) is to it.
+_ACTIVATION_NEAR = timedelta(minutes=10)
+# Entra role changes → (audit kind, action).
+_ROLE_AUDIT: dict[str, tuple[str, str]] = {
+    "granted": ("role", "add"),
+    "removed": ("role", "remove"),
+    "eligible_added": ("eligible", "add"),
+    "eligible_removed": ("eligible", "remove"),
+}
+
+
+def _apply_role_audits(
+    session: Session, changes: list[AccessChange], since: datetime, until: datetime
+) -> int:
+    """Give Entra role changes the time and author of their audit log entry.
+
+    Same member, same role, same kind of change, between the two checks. A
+    change through PIM is recorded twice: by PIM, with the person who made it,
+    and by the directory, with the PIM service as author; the person's entry
+    wins, then the newest. The directory also records each PIM activation and
+    its expiry as a role given and removed by the PIM service: an app's entry
+    within minutes of an activation of the same role never explains a change.
+    Returns how many changes were updated; the caller commits.
+    """
+    wanted = [
+        c
+        for c in changes
+        if c.scope == ENTRA_PLACE
+        and c.kind in _ROLE_AUDIT
+        and c.source in ("daily_check", "created_on")
+    ]
+    if not wanted:
+        return 0
+    events: dict[tuple[str, str, str, str], list[DirectoryAuditEvent]] = defaultdict(list)
+    activations: dict[tuple[str, str, str], list[datetime]] = defaultdict(list)
+    for chunk in _chunks(sorted({c.principal_id.lower() for c in wanted})):
+        for ev in session.scalars(
+            select(DirectoryAuditEvent)
+            .where(DirectoryAuditEvent.member_id.in_(chunk))
+            .where(DirectoryAuditEvent.kind.in_(("role", "eligible", "activation")))
+            .where(DirectoryAuditEvent.occurred_at >= since - _ACTIVATION_NEAR)
+            .where(DirectoryAuditEvent.occurred_at <= until + _ACTIVATION_NEAR)
+        ).all():
+            if (ev.result or "success").lower() != "success" or not ev.role_id:
+                continue
+            if ev.kind == "activation":
+                activations[(ev.member_id, ev.role_id, ev.action)].append(as_utc(ev.occurred_at))
+            elif since <= as_utc(ev.occurred_at) <= until:
+                events[(ev.member_id, ev.role_id, ev.kind, ev.action)].append(ev)
+
+    def from_activation(ev: DirectoryAuditEvent) -> bool:
+        near = activations.get((ev.member_id, ev.role_id or "", ev.action), [])
+        when = as_utc(ev.occurred_at)
+        return ev.initiator_type == "app" and any(abs(when - t) <= _ACTIVATION_NEAR for t in near)
+
+    updated = 0
+    for c in wanted:
+        role = (c.role_definition_id or "").rsplit("/", 1)[-1].lower()
+        hits = [
+            e
+            for e in events.get((c.principal_id.lower(), role, *_ROLE_AUDIT[c.kind]), [])
+            if not from_activation(e)
+        ]
+        if not hits:
+            continue
+        ev = max(hits, key=lambda e: (e.initiator_type == "user", as_utc(e.occurred_at), e.id or 0))
+        c.occurred_at = as_utc(ev.occurred_at)
+        c.source = "entra_audit"
+        c.actor_id = ev.initiator_id
+        c.actor_name = ev.initiator_name
+        c.actor_type = ev.initiator_type
+        updated += 1
+    return updated
+
+
 def _nested_in_checks(
     session: Session, prev_id: int | None, scan_id: int, group_ids: set[str]
 ) -> dict[str, set[str]]:
@@ -505,13 +598,21 @@ def _nested_in_checks(
 
 
 def refine_from_directory_audits(session: Session, days: int = 14) -> int:
-    """Give "first seen" membership changes their author once the Entra ID
-    audit log entries arrive (the collection may run after the check). Commits."""
+    """Give "first seen" membership and Entra role changes their author once
+    the Entra ID audit log entries arrive (the collection may run after the
+    check). Commits."""
     since = datetime.now(UTC) - timedelta(days=days)
     rows = session.scalars(
         select(AccessChange)
-        .where(AccessChange.source == "daily_check")
-        .where(AccessChange.kind.in_(tuple(_AUDIT_ACTION)))
+        .where(
+            or_(
+                (AccessChange.source == "daily_check")
+                & AccessChange.kind.in_(tuple(_AUDIT_ACTION)),
+                (AccessChange.scope == ENTRA_PLACE)
+                & AccessChange.source.in_(("daily_check", "created_on"))
+                & AccessChange.kind.in_(tuple(_ROLE_AUDIT)),
+            )
+        )
         .where(AccessChange.first_seen_scan_id.is_not(None))
         .where(AccessChange.occurred_at >= since)
     ).all()
@@ -533,6 +634,7 @@ def refine_from_directory_audits(session: Session, days: int = 14) -> int:
             {(c.via_group_id or "").lower() for c in changes},
         )
         updated += _apply_directory_audits(session, changes, nested, prev_at - EVENT_SLACK, until)
+        updated += _apply_role_audits(session, changes, prev_at - EVENT_SLACK, until)
     session.commit()
     return updated
 

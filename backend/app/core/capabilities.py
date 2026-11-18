@@ -153,7 +153,13 @@ def _is_data_write(pattern: str) -> bool:
 
 
 def classify(permissions: Any) -> Capability:
-    """Classify one role definition's ``permissions`` (as cached from Azure)."""
+    """Classify one role definition's ``permissions`` (as cached from Azure,
+    or an Entra role's from Microsoft Graph: ``core/entra_roles.py``)."""
+    from app.core import entra_roles
+
+    if entra_roles.is_entra(permissions):
+        level, gives = entra_roles.level_of(permissions)
+        return Capability(level, keys_for=gives)  # type: ignore[arg-type]
     blocks = _blocks(permissions)
     if not blocks:
         return UNKNOWN

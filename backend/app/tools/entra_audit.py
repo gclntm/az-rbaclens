@@ -1,12 +1,13 @@
-"""Read who changed group membership, from the Entra ID audit log.
+"""Read who changed group membership and Entra roles, from the Entra ID audit log.
 
-Adding someone to a group is a change in Entra ID, not in Azure: the
-Activity Log never sees it, so the changes feed could only say when a check
-first saw the new member. Entra records it in its audit log, read here
-through Microsoft Graph (``/auditLogs/directoryAudits``). Only the "Add
-member to group" and "Remove member from group" entries are kept, in
-``directory_audit_events``; ``core/changes.py`` matches them to the members
-a check saw join or leave a group that holds access.
+Adding someone to a group, or giving them an Entra role, is a change in
+Entra ID, not in Azure: the Activity Log never sees it, so the changes feed
+could only say when a check first saw it. Entra records it in its audit
+log, read here through Microsoft Graph (``/auditLogs/directoryAudits``).
+Only the entries in :data:`ACTIVITIES` are kept, in ``directory_audit_events``:
+group members added or removed, Entra roles given or removed (directly or
+through PIM), eligibility added or removed, and PIM activations.
+``core/changes.py`` matches them to the differences a check saw.
 
 Optional. The identity needs the Graph application permission
 ``AuditLog.Read.All`` (read-only). Without it RBAC Lens works as before: the
@@ -42,7 +43,32 @@ logger = logging.getLogger(__name__)
 
 GRAPH = "https://graph.microsoft.com"
 AUDITS_URL = f"{GRAPH}/v1.0/auditLogs/directoryAudits"
-ACTIONS = {"Add member to group": "add", "Remove member from group": "remove"}
+# activityDisplayName → (kind, action). Kinds: group (its members), role (an Entra
+# role given or removed), eligible (through PIM), activation (a PIM activation:
+# use of an eligibility, not a change of who has access).
+ACTIVITIES: dict[str, tuple[str, str]] = {
+    "Add member to group": ("group", "add"),
+    "Remove member from group": ("group", "remove"),
+    "Add member to role": ("role", "add"),
+    "Add member to role in PIM completed (permanent)": ("role", "add"),
+    "Add member to role in PIM completed (timebound)": ("role", "add"),
+    "Add member to role outside of PIM (permanent)": ("role", "add"),
+    "Remove member from role": ("role", "remove"),
+    "Remove member from role in PIM completed (permanent)": ("role", "remove"),
+    "Remove member from role in PIM completed (timebound)": ("role", "remove"),
+    "Remove permanent direct role assignment": ("role", "remove"),
+    "Add eligible member to role": ("eligible", "add"),
+    "Add eligible member to role in PIM completed (permanent)": ("eligible", "add"),
+    "Add eligible member to role in PIM completed (timebound)": ("eligible", "add"),
+    "Remove eligible member from role": ("eligible", "remove"),
+    "Remove eligible member from role in PIM completed (permanent)": ("eligible", "remove"),
+    "Remove eligible member from role in PIM completed (timebound)": ("eligible", "remove"),
+    "Remove permanent eligible role assignment": ("eligible", "remove"),
+    "Add member to role completed (PIM activation)": ("activation", "add"),
+    "Remove member from role (PIM activation expired)": ("activation", "remove"),
+}
+CATEGORIES = ("GroupManagement", "RoleManagement")
+_MEMBER_TYPES = {"User", "Group", "ServicePrincipal"}
 MAX_PAGES = 2000
 BATCH_SIZE = 200
 HEARTBEAT_EVERY_SECONDS = 20.0
@@ -126,16 +152,16 @@ def _minimum_time(response: Any) -> datetime | None:
 
 
 def entries(graph: PipelineClient, start: datetime, end: datetime) -> Iterator[dict[str, Any]]:
-    """The group membership entries of the window, as Graph returns them.
+    """The window's entries listed in :data:`ACTIVITIES`, as Graph returns them.
 
-    Asks Graph for the two activities only. A window starting before what
-    Entra keeps is moved to the earliest time Graph accepts. If Graph
-    rejects the filter itself (``or`` is not documented for this API), asks
-    for the window alone and keeps the two activities here. Raises
+    Asks Graph for the group and role categories only, and keeps the listed
+    activities. A window starting before what Entra keeps is moved to the
+    earliest time Graph accepts. If Graph rejects the filter itself (``or``
+    is not documented for this API), asks for the window alone. Raises
     :class:`AuditLogNotReadable` on a refusal, ``RuntimeError`` on any other
     answer than 200.
     """
-    names = " or ".join(f"activityDisplayName eq '{n}'" for n in ACTIONS)
+    names = " or ".join(f"category eq '{c}'" for c in CATEGORIES)
 
     def first_request(narrow: bool) -> HttpRequest:
         window = _window_filter(start, end)
@@ -167,7 +193,7 @@ def entries(graph: PipelineClient, start: datetime, end: datetime) -> Iterator[d
             )
         body = response.json()
         for item in body.get("value") or []:
-            if item.get("activityDisplayName") in ACTIONS:
+            if item.get("activityDisplayName") in ACTIVITIES:
                 yield item
         next_link = body.get("@odata.nextLink")
         # The token goes with the request: follow a next page only on Graph's own address.
@@ -216,14 +242,74 @@ def _name(target: dict[str, Any]) -> str | None:
     return target.get("userPrincipalName") or target.get("displayName") or None
 
 
+def _role_from(targets: list[dict[str, Any]]) -> str | None:
+    """The role's template id: ``Role.TemplateId`` on the member (Core Directory),
+    or ``TemplateId`` / the id of the target typed Role (PIM)."""
+    for t in targets:
+        for p in t.get("modifiedProperties") or []:
+            if p.get("displayName") in ("Role.TemplateId", "TemplateId"):
+                value = _clean(p.get("newValue")) or _clean(p.get("oldValue"))
+                if value:
+                    return value.lower()
+    role = next(
+        (t for t in targets if str(t.get("type") or t.get("Type") or "").lower() == "role"), None
+    )
+    return str(role["id"]).lower() if role else None
+
+
+def _initiator(item: dict[str, Any]) -> tuple[str | None, str | None, str | None]:
+    initiated = item.get("initiatedBy") or {}
+    user, app = initiated.get("user") or {}, initiated.get("app") or {}
+    if user.get("id"):
+        return "user", user["id"], user.get("userPrincipalName") or user.get("displayName")
+    if app.get("servicePrincipalId") or app.get("appId") or app.get("displayName"):
+        return (
+            "app",
+            app.get("servicePrincipalId") or app.get("appId"),
+            app.get("displayName") or app.get("servicePrincipalName"),
+        )
+    return None, None, None
+
+
+def _when(item: dict[str, Any]) -> datetime:
+    return as_utc(datetime.fromisoformat(str(item["activityDateTime"]).replace("Z", "+00:00")))
+
+
+def _parse_role(
+    item: dict[str, Any], kind: str, action: str, targets: list
+) -> DirectoryAuditEvent | None:
+    role_id = _role_from(targets)
+    member = next((t for t in targets if _type(t) in _MEMBER_TYPES), None)
+    if not (role_id and member):
+        return None
+    ikind, iid, iname = _initiator(item)
+    return DirectoryAuditEvent(
+        audit_id=str(item["id"])[:100],
+        kind=kind,
+        action=action,
+        occurred_at=_when(item),
+        result=(item.get("result") or None),
+        role_id=role_id,
+        member_id=member["id"].lower(),
+        member_type=_type(member),
+        member_name=_name(member),
+        initiator_type=ikind,
+        initiator_id=iid.lower() if iid else None,
+        initiator_name=iname,
+        raw=item,
+    )
+
+
 def parse(item: dict[str, Any]) -> DirectoryAuditEvent | None:
-    """One audit entry as a row, or ``None`` when it doesn't name a group and a member."""
-    action = ACTIONS.get(item.get("activityDisplayName") or "")
+    """One audit entry as a row, or ``None`` when it doesn't name what changed for whom."""
+    kind, action = ACTIVITIES.get(item.get("activityDisplayName") or "", (None, None))
     audit_id = item.get("id")
     when = item.get("activityDateTime")
     targets = [t for t in item.get("targetResources") or [] if t.get("id")]
-    if not (action and audit_id and when and targets):
+    if not (kind and action and audit_id and when and targets):
         return None
+    if kind != "group":
+        return _parse_role(item, kind, action, targets)
     gid, gname = _group_from_properties(targets)
     group = next((t for t in targets if gid and t["id"].lower() == gid.lower()), None)
     if gid is None:
@@ -238,31 +324,19 @@ def parse(item: dict[str, Any]) -> DirectoryAuditEvent | None:
     member = next((t for t in targets if gid and t["id"].lower() != gid.lower()), None)
     if gid is None or member is None:
         return None
-    initiated = item.get("initiatedBy") or {}
-    user, app = initiated.get("user") or {}, initiated.get("app") or {}
-    if user.get("id"):
-        kind, iid, iname = (
-            "user",
-            user["id"],
-            user.get("userPrincipalName") or user.get("displayName"),
-        )
-    elif app.get("servicePrincipalId") or app.get("appId") or app.get("displayName"):
-        kind = "app"
-        iid = app.get("servicePrincipalId") or app.get("appId")
-        iname = app.get("displayName") or app.get("servicePrincipalName")
-    else:
-        kind = iid = iname = None
+    ikind, iid, iname = _initiator(item)
     return DirectoryAuditEvent(
         audit_id=str(audit_id)[:100],
+        kind="group",
         action=action,
-        occurred_at=as_utc(datetime.fromisoformat(str(when).replace("Z", "+00:00"))),
+        occurred_at=_when(item),
         result=(item.get("result") or None),
         group_id=gid.lower(),
         group_name=gname or (_name(group) if group else None),
         member_id=member["id"].lower(),
         member_type=_type(member),
         member_name=_name(member),
-        initiator_type=kind,
+        initiator_type=ikind,
         initiator_id=iid.lower() if iid else None,
         initiator_name=iname,
         raw=item,
@@ -288,7 +362,7 @@ def collect(session: Session, graph: PipelineClient, pull: ActivityPull) -> tupl
         persisted += len(fresh)
         batch = []
         pull.progress_done = persisted
-        pull.progress_message = f"Read {seen} membership changes, {persisted} new…"
+        pull.progress_message = f"Read {seen} audit entries, {persisted} new…"
         pull.heartbeat_at = datetime.now(UTC)
         session.commit()
 

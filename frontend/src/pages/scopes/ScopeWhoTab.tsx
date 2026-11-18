@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { linkButtonClass, pillClass } from "@/components/chips";
 import {
   api,
+  isEntraPlace,
   type CapabilityIdentity,
   type CapabilityLevel,
   type PrincipalMember,
@@ -131,6 +132,7 @@ export default function ScopeWhoTab({ scope }: { scope: ScopeNode }) {
 
   // Short name ("rg-app", not "prod / rg-app"): the breadcrumb gives the parent.
   const name = treeLabel(scope.id, scope.name, scope.level);
+  const entra = isEntraPlace(scope.id);
   const pim = pimSentence(data.pim);
   const accessGroup = data.levels.find((l) => l.level === "access");
   // "Can change who has access" means now; on-request ones are said separately.
@@ -240,9 +242,9 @@ export default function ScopeWhoTab({ scope }: { scope: ScopeNode }) {
               ) : (
                 <ul className={WHO_LIST}>
                   {shown.map((i) => (
-                    <IdentityRow key={i.id} identity={i} />
+                    <IdentityRow key={i.id} identity={i} entra={entra} />
                   ))}
-                  {folded.length > 0 && <FoldedApps apps={folded} />}
+                  {folded.length > 0 && <FoldedApps apps={folded} entra={entra} />}
                 </ul>
               ))}
           </div>
@@ -297,10 +299,10 @@ export default function ScopeWhoTab({ scope }: { scope: ScopeNode }) {
   );
 }
 
-function IdentityRow({ identity: i }: { identity: CapabilityIdentity }) {
+function IdentityRow({ identity: i, entra = false }: { identity: CapabilityIdentity; entra?: boolean }) {
   const [members, setMembers] = useState<PrincipalMember[] | null>(null);
   const [showMembers, setShowMembers] = useState(false);
-  const tag = statusTag(i);
+  const tag = statusTag(i, new Date(), entra);
   const power = powerText(i);
   const condition = conditionNote(i);
   const grant = decidingGrant(i);
@@ -377,7 +379,7 @@ function IdentityRow({ identity: i }: { identity: CapabilityIdentity }) {
   );
 }
 
-function FoldedApps({ apps }: { apps: CapabilityIdentity[] }) {
+function FoldedApps({ apps, entra = false }: { apps: CapabilityIdentity[]; entra?: boolean }) {
   const [open, setOpen] = useState(false);
   const names = apps
     .slice(0, 3)
@@ -387,7 +389,7 @@ function FoldedApps({ apps }: { apps: CapabilityIdentity[] }) {
     return (
       <>
         {apps.map((a) => (
-          <IdentityRow key={a.id} identity={a} />
+          <IdentityRow key={a.id} identity={a} entra={entra} />
         ))}
         <li className={WHO_ROW}>
           <button type="button" className={cx(linkButtonClass(), "col-[1/-1] justify-self-start")} onClick={() => setOpen(false)}>

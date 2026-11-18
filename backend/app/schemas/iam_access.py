@@ -1,10 +1,11 @@
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 ScanStatus = Literal["pending", "running", "done", "failed"]
-ScopeLevel = Literal["mgmt_group", "subscription", "resource_group", "resource"]
+# ``directory``: the Entra ID place (core/entra_roles.py), above the Tenant Root Group.
+ScopeLevel = Literal["directory", "mgmt_group", "subscription", "resource_group", "resource"]
 
 
 class ScanCreate(BaseModel):
@@ -115,6 +116,14 @@ class RolePermission(BaseModel):
     notActions: list[str] = []
     dataActions: list[str] = []
     notDataActions: list[str] = []
+
+    @model_validator(mode="before")
+    @classmethod
+    def _entra(cls, data: Any) -> Any:
+        """An Entra role's block (``allowedResourceActions``) shows as its actions."""
+        if isinstance(data, dict) and "allowedResourceActions" in data and "actions" not in data:
+            return {"actions": list(data.get("allowedResourceActions") or [])}
+        return data
 
 
 class GroupMemberRead(BaseModel):

@@ -17,6 +17,7 @@ export type ScopeTab = "who" | "findings" | "history" | "activity" | "access";
 export const SCOPE_TABS: ScopeTab[] = ["who", "findings", "history", "activity", "access"];
 
 export const LEVEL_SHORT: Record<ScopeLevel, string> = {
+  directory: "Entra",
   mgmt_group: "MG",
   subscription: "Sub",
   resource_group: "RG",
@@ -24,6 +25,7 @@ export const LEVEL_SHORT: Record<ScopeLevel, string> = {
 };
 
 export const LEVEL_LABEL: Record<ScopeLevel, string> = {
+  directory: "Entra ID",
   mgmt_group: "Management group",
   subscription: "Subscription",
   resource_group: "Resource group",
@@ -39,6 +41,11 @@ export const CATEGORY_LABEL: Record<string, string> = {
   redundant: "Already covered by another grant",
   membership_unknown: "Group members unknown",
   drift_added: "New since the previous check",
+  foreign_group: "Powerful role held from another tenant",
+  entra_standing_admin: "Entra admin role held all the time",
+  entra_app_privileged: "An app holds a powerful Entra role",
+  entra_too_many_global_admins: "Too many Global Administrators",
+  entra_role_via_group: "Powerful Entra role through a group",
 };
 
 /** One sentence per category for the "Needs a look" list on Home. */
@@ -51,6 +58,12 @@ export const CATEGORY_SENTENCE: Record<string, string> = {
   redundant: "Already covered by another grant.",
   membership_unknown: "A group whose members could not be read.",
   drift_added: "New since the previous check.",
+  foreign_group:
+    "A group of another tenant (a partner, through delegated admin access) holds a powerful role; its members can't be seen from here.",
+  entra_standing_admin: "A person holds an Entra role that can change who has access, all the time, not through PIM.",
+  entra_app_privileged: "An app holds an Entra role that can change who has access or get in as someone else.",
+  entra_too_many_global_admins: "More Global Administrators than the fewer than five Microsoft advises.",
+  entra_role_via_group: "A powerful Entra role comes through a group: whoever manages its members decides who holds it.",
 };
 
 export const SEVERITY_ORDER: Record<FindingSeverity, number> = { high: 0, medium: 1, low: 2 };
@@ -141,7 +154,7 @@ export function formatDateTime(iso: string | null | undefined): string {
 // Assignments
 // ---------------------------------------------------------------------------
 
-const BROAD: ReadonlySet<ScopeLevel> = new Set(["mgmt_group", "subscription"]);
+const BROAD: ReadonlySet<ScopeLevel> = new Set(["directory", "mgmt_group", "subscription"]);
 
 /** Same rule as the backend's ``is_high_risk``: high-risk role at MG / subscription. */
 export function isBroadHighRisk(row: Pick<ScopeAssignmentRow, "role_risk" | "scope_level">): boolean {

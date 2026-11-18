@@ -614,3 +614,29 @@ def test_an_empty_group_is_unused_for_certain(app_with_sqlite: TestClient):
     assert "membership_unknown" not in {
         x["category"] for x in body["findings"] if x["title"] == f["title"]
     }
+
+
+def test_a_partners_group_holding_a_powerful_role_is_flagged_not_taken_for_deleted(
+    app_with_sqlite: TestClient,
+):
+    """A group of another tenant (Azure and Entra type it ForeignGroup): its name and members
+    can't be read from here. That is no reason to call it deleted or its access unused."""
+    from app.db.session import SessionLocal
+
+    with SessionLocal() as db:
+        _seed_roles(db)
+        scan = _seed_scan(db)
+        db.add_all(
+            [
+                _ra(scan.id, SUB_SCOPE, "subscription", "partner-grp", "ForeignGroup", OWNER),
+                _ra(scan.id, SUB_SCOPE, "subscription", "partner-readers", "ForeignGroup", READER),
+            ]
+        )
+        db.commit()
+        scan_id = scan.id
+    cats = _categories(
+        app_with_sqlite.post(f"/api/iam-access/scans/{scan_id}/findings/recompute").json()
+    )
+    assert cats["foreign_group"] == ["Owner → partner-grp on prod"]  # powerful roles only
+    assert "unresolved_principal" not in cats
+    assert "unused" not in cats

@@ -440,7 +440,7 @@ Settings page). Give it:
   `mg-contoso`), or on the Tenant Root Group for everything;
 - **Management Group Reader** on the Tenant Root Group, for the tree above;
 - the Entra role **Directory Readers**, for users, groups and apps in
-  Microsoft Graph.
+  Microsoft Graph, and who holds which Entra role (the Entra ID place).
 
 These roles also cover the Activity Log of the management groups (read
 over `…/managementGroups/<id>/providers/microsoft.insights/eventtypes/
@@ -483,7 +483,7 @@ permission, each set in a different place:
 |---|---|---|---|
 | **Reader** | Azure role | On the management group to review, or the Tenant Root Group | Required: role assignments, PIM, the Activity Log |
 | **Management Group Reader** | Azure role | On the Tenant Root Group | Required: the tree of management groups above |
-| **Directory Readers** | Entra role | Entra ID → Roles and administrators | Recommended: names, and the members of groups |
+| **Directory Readers** | Entra role | Entra ID → Roles and administrators | Recommended: names, the members of groups, and who holds which Entra role |
 | **AuditLog.Read.All** | Microsoft Graph *Application* permission, admin consent | The app registration → API permissions | Optional: who added or removed a group member |
 | **Mail.Send** | Microsoft Graph *Application* permission, admin consent | The app registration → API permissions | Optional: real email ([below](#real-email-through-microsoft-graph)) |
 

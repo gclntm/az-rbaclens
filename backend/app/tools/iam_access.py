@@ -101,6 +101,13 @@ def run_scan(scan_id: int) -> None:
             ) = collect_assignments(scan.scope, scan.scope_level, credential, on_progress)
             pim = _collect_pim_safely(scan, hierarchy, credential, role_definitions)
             _apply_pim(assignments, pim, group_memberships, credential)
+            entra = _collect_entra(scan, credential, hierarchy, group_memberships)
+            if entra is not None:
+                assignments.extend(entra.assignments)
+                role_definitions.update(entra.role_definitions)
+                for eligibility in entra.eligibilities:
+                    eligibility.scan_id = scan.id
+                    session.add(eligibility)
             for ra in assignments:
                 ra.scan_id = scan.id
                 session.add(ra)
@@ -158,6 +165,41 @@ def _collect_pim_safely(
     except Exception as exc:
         logger.exception("PIM collection failed for scan %s", scan.id)
         return pim_tool.PimResult(status="failed", error=f"{type(exc).__name__}: {exc}")
+
+
+def _collect_entra(
+    scan: Scan,
+    credential: TokenCredential,
+    hierarchy: Hierarchy,
+    group_memberships: dict[str, Any],
+):
+    """Entra roles, for a check of the Tenant Root Group only (tools/entra_directory.py).
+
+    Adds the Entra ID place to ``hierarchy`` (unread when Graph refuses) and
+    the members of the groups holding a role to ``group_memberships``.
+    Graph not answering fails the check, like the rest of its Graph reads.
+    """
+    from app.tools import entra_directory as ed
+    from app.tools.graph_groups import GRAPH_SCOPE
+
+    try:
+        token = credential.get_token(GRAPH_SCOPE).token
+    except Exception:
+        logger.warning("no Graph token: Entra roles not read for scan %s", scan.id, exc_info=True)
+        return None
+    if not ed.is_tenant_root(scan.scope, scan.scope_level, ed.tenant_of(token)):
+        return None
+    try:
+        roles = ed.collect(credential)
+    except ed.EntraNotReadable as exc:
+        logger.warning("Entra roles not readable for scan %s: %s", scan.id, exc)
+        hierarchy[ed.ENTRA_PLACE] = ed.hierarchy_node(unread=True)
+        return None
+    hierarchy[ed.ENTRA_PLACE] = ed.hierarchy_node()
+    missing = sorted(roles.group_ids - set(group_memberships))
+    if missing:
+        group_memberships.update(resolve_group_memberships(missing, credential, strict=True))
+    return roles
 
 
 def _apply_pim(

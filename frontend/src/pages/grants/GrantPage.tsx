@@ -229,7 +229,7 @@ export default function GrantPage() {
             </ul>
             <span className={FACT_NOTE}>
               Role: <RoleLink roleId={grant.role_definition_id} roleName={grant.role_name} />
-              {grant.role_type === "CustomRole" && " (custom role)"}
+              {(grant.role_type ?? "").endsWith("CustomRole") && " (custom role)"}
             </span>
           </dd>
 

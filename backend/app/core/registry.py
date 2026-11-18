@@ -31,6 +31,7 @@ from typing import Any
 from sqlalchemy import bindparam, case, func, or_, select, update
 from sqlalchemy.orm import Session
 
+from app.core.entra_roles import ENTRA_PLACE
 from app.db.models import GroupMembership, Principal, RoleAssignment, RoleEligibility, Scan, Scope
 
 logger = logging.getLogger(__name__)
@@ -83,6 +84,9 @@ def _walked(root: str, parents: dict[str, str], nodes: Iterable[str]) -> set[str
         children.setdefault(parent, []).append(child)
     known = set(nodes)
     out = {root}
+    # Entra ID sits beside the tree, not under it: a check that read it walked it too.
+    if ENTRA_PLACE in known:
+        out.add(ENTRA_PLACE)
     stack = [root]
     while stack:
         for child in children.get(stack.pop(), ()):

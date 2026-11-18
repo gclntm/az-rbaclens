@@ -117,6 +117,7 @@ export const BADGE_TONE = {
 
 /** A place's level as a badge colour (management group, subscription…). */
 export const BADGE_LEVEL: Record<string, string> = {
+  directory: SUBTLE.purple,
   mgmt_group: SUBTLE.blue,
   subscription: SUBTLE.green,
   resource_group: SUBTLE.orange,

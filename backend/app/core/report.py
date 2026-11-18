@@ -53,7 +53,13 @@ _KIND = {
     "MSI": "app",
     "Application": "app",
 }
-_SCOPE_RANK = {"mgmt_group": 0, "subscription": 1, "resource_group": 2, "resource": 3}
+_SCOPE_RANK = {
+    "directory": -1,
+    "mgmt_group": 0,
+    "subscription": 1,
+    "resource_group": 2,
+    "resource": 3,
+}
 CHANGE_DAYS = 30
 # Grants sent per recommendation: every must-do (capped), enough should-do to group in the PDF.
 # The screen shows the first 5; the CSV annex always has them all.

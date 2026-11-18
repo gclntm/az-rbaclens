@@ -23,6 +23,7 @@ from app.core.activity_targets import MGMT_GROUPS, MGMT_GROUPS_NAME
 from app.core.advice import NO_ACTION, advise_grant, advise_identity
 from app.core.advice import context as advice_context
 from app.core.current_view import BROAD_LEVELS, CurrentView, current_view, role_risk_by_arm
+from app.core.entra_roles import ENTRA_PLACE
 from app.core.findings import finding_sort_key
 from app.core.operation_names import names_for
 from app.core.scan_coverage import caller_oid_expr, subscription_id_of_scope
@@ -30,14 +31,17 @@ from app.core.timeutil import as_utc
 from app.core.visibility import vis_of
 from app.db.models import (
     ActivityEvent,
+    DirectoryAuditEvent,
     GroupMembership,
     Principal,
     RoleAssignment,
+    RoleDefinition,
     RoleEligibility,
     Scope,
 )
 from app.db.session import get_session
 from app.schemas.principals import (
+    EntraActivation,
     OperationCount,
     PrincipalAccessRow,
     PrincipalActivity,
@@ -53,7 +57,13 @@ router = APIRouter(tags=["principals"])
 # Events, not rows: a daily row stands for ``event_count`` of them (core/activity_compaction.py).
 _EVENTS = func.coalesce(func.sum(ActivityEvent.event_count), 0)
 
-_LEVEL_RANK = {"mgmt_group": 0, "subscription": 1, "resource_group": 2, "resource": 3}
+_LEVEL_RANK = {
+    "directory": -1,
+    "mgmt_group": 0,
+    "subscription": 1,
+    "resource_group": 2,
+    "resource": 3,
+}
 # Bounds an IN list of member object ids; a bigger group is sampled.
 _MAX_IDENTITIES = 2000
 
@@ -241,6 +251,9 @@ def principal_page(
             if len(seen) < len(a.grants):
                 a.grants, a.why = seen, ""  # the sentence may name a place they don't see
         advice.actions = [a for a in advice.actions if a.grants]
+    activations = _entra_activations(session, pid)
+    if vis is not None and not (pid in vis.my_ids or vis.sees_grant_at(ENTRA_PLACE)):
+        activations = []
     return PrincipalPage(
         principal=principal,
         summary=PrincipalSummary(
@@ -259,7 +272,34 @@ def principal_page(
         members_read=members_read,
         findings=findings,
         advice=advice,
+        entra_activations=activations,
     )
+
+
+def _entra_activations(
+    session: Session, principal_id: str, limit: int = 50
+) -> list[EntraActivation]:
+    """PIM activations of Entra roles by this identity, newest first."""
+    rows = session.execute(
+        select(DirectoryAuditEvent.occurred_at, DirectoryAuditEvent.role_id)
+        .where(DirectoryAuditEvent.kind == "activation")
+        .where(DirectoryAuditEvent.action == "add")
+        .where(DirectoryAuditEvent.member_id == principal_id.lower())
+        .where(func.coalesce(DirectoryAuditEvent.result, "success") == "success")
+        .order_by(DirectoryAuditEvent.occurred_at.desc())
+        .limit(limit)
+    ).all()
+    names = dict(
+        session.execute(
+            select(RoleDefinition.role_definition_id, RoleDefinition.role_name).where(
+                RoleDefinition.role_definition_id.in_({r for _, r in rows if r} or {""})
+            )
+        ).all()
+    )
+    return [
+        EntraActivation(at=as_utc(at), role_id=rid or "", role_name=names.get(rid or ""))
+        for at, rid in rows
+    ]
 
 
 @router.get("/principals/{principal_id}/activity", response_model=PrincipalActivity)

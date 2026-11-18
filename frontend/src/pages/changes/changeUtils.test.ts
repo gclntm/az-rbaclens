@@ -60,6 +60,9 @@ describe("change words", () => {
       "by the app MS-PIM · in grp-nested, inside grp-readers · from the Entra ID audit log",
     );
     expect(timeText(change(joined))).not.toMatch(/^~/);
+    expect(sourceText(change({ source: "created_on", scope: "/providers/microsoft.aadiam" }))).toBe(
+      "by sp-terraform · as recorded by Entra",
+    );
     expect(timeText(change({ source: "daily_check" }))).toMatch(/^~/);
     expect(timeText(change())).not.toMatch(/^~/);
   });

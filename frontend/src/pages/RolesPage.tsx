@@ -18,6 +18,7 @@ import { scopeHref } from "@/pages/scopes/scopeUtils";
 import { groupByScope } from "./roles";
 
 const SCOPE_LEVEL_LABEL: Record<ScopeLevel, string> = {
+  directory: "Entra ID",
   mgmt_group: "Mgmt group",
   subscription: "Subscription",
   resource_group: "Resource group",
@@ -46,6 +47,7 @@ const ROW_FLAG =
 const FLAG_TONE = {
   custom: "border border-(--accent-orange) bg-(--accent-orange-subtle) text-warning-primary",
   risk: "bg-(--accent-red) text-(--on-accent)",
+  entra: "border border-(--accent-purple) bg-(--accent-purple-subtle) text-(--accent-purple)",
 } as const;
 const DETAIL_SECTION = "border-t border-t-secondary pt-2";
 const DETAIL_SECTION_TITLE = "mx-0 mt-0 mb-1 text-[0.9rem] font-semibold";
@@ -220,8 +222,13 @@ export default function RolesPage() {
                     <span className={cx(ONE_LINE, "h-4")}>
                       {r.role_name ?? r.role_definition_id}
                     </span>
-                    <span className="flex flex-[0_0_44px] items-center justify-end gap-[3px]">
-                      {r.role_type === "CustomRole" && (
+                    <span className="flex flex-[0_0_60px] items-center justify-end gap-[3px]">
+                      {(r.role_type ?? "").startsWith("Entra") && (
+                        <span className={cx(ROW_FLAG, FLAG_TONE.entra)} title="Entra role">
+                          E
+                        </span>
+                      )}
+                      {(r.role_type ?? "").endsWith("CustomRole") && (
                         <span className={cx(ROW_FLAG, FLAG_TONE.custom)} title="Custom role">
                           C
                         </span>
@@ -316,7 +323,7 @@ function RoleDetail({ roleId }: { roleId: string }) {
       title={detail.role_name ?? detail.role_definition_id}
       hint={
         <>
-          {detail.role_type === "CustomRole" ? "Custom role" : "Built-in role"}
+          {(detail.role_type ?? "").endsWith("CustomRole") ? "Custom role" : "Built-in role"}
           {usage &&
             ` · ${usage.assignment_count} ${usage.assignment_count === 1 ? "grant" : "grants"}, ${usage.principal_count} ${usage.principal_count === 1 ? "person or app" : "people & apps"}, ${usage.scope_count} ${usage.scope_count === 1 ? "place" : "places"}`}
           <span className={cx(MONO, "mx-0 mt-0 mb-2 overflow-hidden text-[0.75rem] text-ellipsis whitespace-nowrap")}> · {detail.role_definition_id}</span>

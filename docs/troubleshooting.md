@@ -107,6 +107,18 @@ Entra ID audit log**:
   group, not them; those stay "first seen". So does a change older than
   what Entra keeps (7 or 30 days) when the collection started.
 
+## Entra ID is missing from Places, or shows as not read
+
+Entra roles are read only by a check of the **Tenant Root Group** (the daily
+check): a check of another management group or a subscription leaves the
+Entra ID place out. Run the daily check, or check the Tenant Root Group once.
+
+*Not read* means Microsoft Graph refused the role assignments: give the
+identity the Entra role **Directory Readers**
+([deployment.md](deployment.md#setting-up-the-service-identity)). Its grants
+are then unknown, not absent: the changes feed reports nothing as removed
+there until a check reads it again.
+
 ## A place shows as not read, or a check fails at its root
 
 A place Azure refuses (403) below the root is skipped and flagged `unread`

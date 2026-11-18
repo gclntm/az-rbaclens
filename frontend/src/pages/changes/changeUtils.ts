@@ -1,4 +1,4 @@
-import type { AccessChange, ChangeKind } from "@/api/client";
+import { type AccessChange, type ChangeKind, isEntraPlace } from "@/api/client";
 
 export const GIVEN: ChangeKind[] = ["granted", "eligible_added", "member_added"];
 
@@ -55,7 +55,10 @@ export function changeSentence(c: AccessChange): string {
 export function sourceText(c: AccessChange): string {
   const by = c.actor_name ?? (c.actor_id ? "an identity RBAC Lens has not named" : null);
   if (c.source === "activity_log") return by ? `by ${by} · from the Azure Activity Log` : "from the Azure Activity Log";
-  if (c.source === "created_on") return by ? `by ${by} · as recorded by Azure` : "as recorded by Azure";
+  if (c.source === "created_on") {
+    const system = isEntraPlace(c.scope) ? "Entra" : "Azure";
+    return by ? `by ${by} · as recorded by ${system}` : `as recorded by ${system}`;
+  }
   if (c.source === "entra_audit") {
     // An app is how Entra records a change made through a service: Outlook or Teams for
     // Microsoft 365 groups, access packages, PIM, the sync from on-premises AD.

@@ -19,6 +19,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.activity_targets import MGMT_GROUP_PREFIX, MGMT_GROUPS
+from app.core.entra_roles import ENTRA_PLACE
 from app.core.role_coverage import (
     compute_coverage,
     recommend_narrower_roles,
@@ -179,10 +180,13 @@ def build_scan_coverage(session: Session, scan: Scan, window_days: int = 90) -> 
     window_end = datetime.now(UTC)
     window_start = window_end - timedelta(days=window_days)
 
+    # Entra roles have no usage to weigh: the Activity Log doesn't record Entra
+    # actions (core/entra_roles.py). Their findings come from their own rules.
     ras = list(
         session.scalars(
             select(RoleAssignment)
             .where(RoleAssignment.scan_id == scan_id)
+            .where(RoleAssignment.scope != ENTRA_PLACE)
             .order_by(RoleAssignment.principal_id, RoleAssignment.scope)
         ).all()
     )

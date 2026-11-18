@@ -1,7 +1,7 @@
 import type { CapabilityLevel, PrincipalAccessRow, ScopeLevel, ScopeNode } from "@/api/client";
 
 const RANK: Record<CapabilityLevel, number> = { access: 0, keys: 1, change: 2, data: 3, view: 4, unknown: 5 };
-const LEVEL_ORDER: Record<ScopeLevel, number> = { mgmt_group: 0, subscription: 1, resource_group: 2, resource: 3 };
+const LEVEL_ORDER: Record<ScopeLevel, number> = { directory: -1, mgmt_group: 0, subscription: 1, resource_group: 2, resource: 3 };
 export const POWERFUL: CapabilityLevel[] = ["access", "keys"];
 
 export type PlaceMeta = { name: string | null; level: ScopeLevel; parent: string | null };

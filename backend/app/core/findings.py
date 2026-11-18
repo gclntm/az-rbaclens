@@ -59,6 +59,11 @@ CATEGORY_PRIORITY = {
             "custom_replaceable",
             "redundant",
             "membership_unknown",
+            "foreign_group",
+            "entra_standing_admin",
+            "entra_app_privileged",
+            "entra_too_many_global_admins",
+            "entra_role_via_group",
         )
     )
 }
@@ -78,9 +83,26 @@ CATEGORIES = (
     "redundant",
     "membership_unknown",
     "drift_added",
+    "foreign_group",
+    # Entra roles (core/entra_findings.py)
+    "entra_standing_admin",
+    "entra_app_privileged",
+    "entra_too_many_global_admins",
+    "entra_role_via_group",
 )
 
-BROAD_LEVELS = {"mgmt_group", "subscription"}
+FOREIGN_GROUP_DETAIL = (
+    "A group of another tenant holds {role}: its members are managed in that tenant "
+    "(a partner, through delegated admin access) and can't be seen from here."
+)
+FOREIGN_GROUP_SUGGESTION = (
+    "Check with the partner who is in the group, and end the delegated access when it is "
+    "no longer needed."
+)
+
+# Grants that apply to everything below. Entra ID (``directory``) counts: its roles
+# apply to the whole tenant, so the advice treats them like a grant high up.
+BROAD_LEVELS = {"directory", "mgmt_group", "subscription"}
 
 
 @dataclass
@@ -218,7 +240,18 @@ def _row_findings(
             "or give it on a smaller place.",
         )
 
-    if not row.principal_name:
+    # A group of another tenant (a partner, through delegated access): Azure and
+    # Entra type it ForeignGroup. Its members are managed there, out of sight.
+    foreign = row.principal_type == "ForeignGroup"
+    if foreign and high:
+        add(
+            "foreign_group",
+            HIGH,
+            FOREIGN_GROUP_DETAIL.format(role=role),
+            FOREIGN_GROUP_SUGGESTION,
+        )
+
+    if not row.principal_name and not foreign:  # a foreign group's name is not ours to read
         add(
             "unresolved_principal",
             HIGH if high else MEDIUM,
@@ -261,7 +294,7 @@ def _row_findings(
             },
         )
 
-    has_data = _has_activity_data(row, coverage) and not membership_unknown
+    has_data = _has_activity_data(row, coverage) and not membership_unknown and not foreign
     usage_evidence = {
         "coverage_pct": row.coverage_pct,
         "granted_pattern_count": row.granted_pattern_count,
@@ -397,6 +430,10 @@ def compute_scan_findings(session: Session, scan_id: int, window_days: int = 90)
     drafts = derive_findings(
         coverage, window_days=window_days, previous_identities=previous_identities
     )
+    from app.core.advice import load_settings
+    from app.core.entra_findings import entra_findings
+
+    drafts.extend(entra_findings(session, scan, set(load_settings(session).break_glass)))
     now = datetime.now(UTC)
 
     session.execute(delete(Finding).where(Finding.scan_id == scan_id))

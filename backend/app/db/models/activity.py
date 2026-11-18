@@ -181,7 +181,7 @@ class OperationName(Base):
 
 
 class DirectoryAuditEvent(Base):
-    """One group membership event from the Entra ID audit log (tools/entra_audit.py).
+    """One group membership or Entra role event from the Entra ID audit log (tools/entra_audit.py).
 
     Who added or removed a member of a group, and when. The changes feed
     matches them to the members a check saw join or leave a group that
@@ -195,13 +195,18 @@ class DirectoryAuditEvent(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     # Entra's own id of the audit entry: reading a window twice stores it once.
     audit_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    # group | role | eligible | activation (0041): a group's members, an Entra
+    # role, an Entra role through PIM eligibility, or a PIM activation.
+    kind: Mapped[str] = mapped_column(String(12), nullable=False, server_default="group")
     # add | remove
     action: Mapped[str] = mapped_column(String(10), nullable=False)
     occurred_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False, index=True)
     # success | failure | … as Entra says it
     result: Mapped[str | None] = mapped_column(String(20))
-    group_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    group_id: Mapped[str | None] = mapped_column(String(64))
     group_name: Mapped[str | None] = mapped_column(String(500))
+    # The Entra role (its template id, lowercased), for every kind but ``group``.
+    role_id: Mapped[str | None] = mapped_column(String(64))
     member_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     member_type: Mapped[str | None] = mapped_column(String(50))
     member_name: Mapped[str | None] = mapped_column(String(500))
