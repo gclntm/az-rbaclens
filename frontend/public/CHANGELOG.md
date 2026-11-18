@@ -6,7 +6,7 @@ carries a version). `make release V=X.Y.Z` turns that heading into
 `## [X.Y.Z] - YYYY-MM-DD`, bumps the version and tags `vX.Y.Z` — see
 [README-MAKE.md](README-MAKE.md) and `scripts/release.sh`.
 
-## 2026-11-18
+## [0.33.0] - 2026-11-18
 
 - **The Changes page can say who added or removed a group member**, and
   exactly when. Joining a group is a change in Entra ID, which the Azure
