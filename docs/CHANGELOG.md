@@ -6,7 +6,7 @@ carries a version). `make release V=X.Y.Z` turns that heading into
 `## [X.Y.Z] - YYYY-MM-DD`, bumps the version and tags `vX.Y.Z` — see
 [README-MAKE.md](README-MAKE.md) and `scripts/release.sh`.
 
-## 2026-11-18
+## [0.34.1] - 2026-11-18
 
 - **Entra role changes come straight from the Entra ID audit log**, not
   only from comparing two daily checks. The Changes page now shows what
