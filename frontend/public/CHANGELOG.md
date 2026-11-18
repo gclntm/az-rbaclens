@@ -6,7 +6,7 @@ carries a version). `make release V=X.Y.Z` turns that heading into
 `## [X.Y.Z] - YYYY-MM-DD`, bumps the version and tags `vX.Y.Z` — see
 [README-MAKE.md](README-MAKE.md) and `scripts/release.sh`.
 
-## 2026-11-18
+## [0.35.1] - 2026-11-18
 
 - **Settings › Data kept: "Apply now" no longer drops unsaved changes.**
   Retention only ever uses saved values, so with an edited value the button
