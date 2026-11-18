@@ -21,7 +21,9 @@ Without Graph read access, identities show as GUIDs and groups get a
 
 Optional: the Graph application permission **AuditLog.Read.All** lets
 RBAC Lens read the Entra ID audit log, to say who added or removed a group
-member or an owner ([Entra ID audit log](#entra-id-audit-log)).
+member or an owner ([Entra ID audit log](#entra-id-audit-log)), and when
+people holding powerful access last signed in (this also needs Entra ID
+P1/P2). Without it, sign-in dates are unknown and nothing is flagged.
 
 ## Checks
 
@@ -243,6 +245,11 @@ redirect):
 - **Needs a look**: findings on those grants.
 - **Owners** (an app or a group): who owns it, and how: its app
   registration, its service principal, or the group.
+- **Secrets and certificates** (an app holding a grant): kind, where, and
+  valid until; never the values.
+- **Last sign-in** (a person holding powerful access), in the header and on
+  their grants' pages, and as a column on `/people`: shown to admins and to
+  the person only, like what they did.
 - **Owns** (anyone): the apps and groups holding access that it owns, with
   the most each can do and where.
 
@@ -255,8 +262,9 @@ month's review decision and, for an app's or a group's grant, its owners. With A
 
 Findings are the reasons a grant needs a look. They are computed at the
 end of every check (and again when the Activity Log brings new events) by
-matching each identity's operations over 90 days against what its role
-allows. For a group, its members' activity counts. Categories and rules
+matching each identity's operations over the idle threshold (Settings ›
+Advice, 90 days by default, never longer than the Activity Log is kept)
+against what its role allows. For a group, its members' activity counts. Categories and rules
 are in [api.md](api.md#findings).
 
 `/findings` is the tenant-wide list over the current grants, worst first,
@@ -276,6 +284,23 @@ through a group, or eligible through PIM) are left out, since owning gives
 them nothing new; so are break-glass identities (Settings › Advice).
 The advice gives the commands that remove an owner; keep as owners only
 those who must change the app or manage the group.
+
+**Idle Entra admins.** The Activity Log never records Entra actions, so an
+Entra role can't be "not used" the way an Azure grant can. Instead, each
+check reads when the people holding a grant that can change who has access
+or get keys last signed in (the newest of interactive, background and
+successful sign-ins). Someone holding such an Entra role all the time who
+hasn't signed in for the idle threshold, or never while their account is
+older than that, needs a look: remove the role, and disable the account if
+nobody uses it. Break-glass identities are left out. Eligible-only holders
+(PIM) show their date but raise nothing: they hold no standing power.
+
+**App secrets.** An app holding a grant that can change who has access or
+get keys needs a look when it has a secret or certificate valid more than
+two years (the portal allows two at most), or one that has expired and is
+still on file. The advice gives the commands to add a shorter one and
+delete the old one; better still, sign-in without a secret (workload
+identity federation).
 
 ## Reviews, To do, Changes and Report
 
@@ -390,7 +415,7 @@ what was added and removed, with the count kept.
 | Tab | What it does |
 |---|---|
 | **Who is responsible** | Set the responsible person per place, and use or ignore suggestions from an Azure tag. |
-| **Advice** | The playbook's thresholds, break-glass identities, and AI wording. |
+| **Advice** | The playbook's thresholds (a grant counts as new, ends soon, and the **idle** threshold shared by "not used" and idle Entra admins; saving it works out what needs a look again), break-glass identities, and AI wording. |
 | **Notifications** | Channel status, a test message, and the outbox. |
 | **Credentials** | Save the Azure identity when the env file has none; the secret is encrypted with `ENCRYPTION_KEY`. Shows which source is active. |
 | **Authentication** | Entra ID sign-in ([auth.md](auth.md)). |

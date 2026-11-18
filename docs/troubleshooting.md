@@ -123,6 +123,14 @@ An app registered in another tenant (Microsoft's or a vendor's) says "owned
 in its publisher's tenant": its registration's owners are there, out of
 sight.
 
+## No last sign-in shown for someone
+
+The date shows only to admins and to the person, and only for people holding
+a grant that can change who has access or get keys. It is unknown (no date,
+no finding) when the identity lacks **AuditLog.Read.All**, or the tenant has
+no Entra ID P1/P2: Graph refuses `signInActivity` then. The next check after
+granting the permission reads it.
+
 ## Entra ID is missing from Places, or shows as not read
 
 Entra roles are read only by a check of the **Tenant Root Group** (the daily

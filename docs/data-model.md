@@ -11,7 +11,7 @@ and plain JSON on the SQLite test engine.
 
 | Area | Tables |
 |---|---|
-| Checks (snapshots) | `scans`, `role_assignments`, `role_eligibilities`, `scan_group_resolutions`, `group_memberships`, `scan_owner_resolutions`, `principal_owners`, `role_definitions` |
+| Checks (snapshots) | `scans`, `role_assignments`, `role_eligibilities`, `scan_group_resolutions`, `group_memberships`, `scan_owner_resolutions`, `principal_owners`, `app_credentials`, `principal_sign_ins`, `role_definitions` |
 | Findings | `scan_coverage`, `findings`, `review_decisions` |
 | Registries and changes | `scopes`, `principals`, `access_changes` |
 | Activity Log | `activity_pulls`, `activity_events`, `activity_compacted_days`, `operation_names` |
@@ -72,6 +72,12 @@ scan_owner_resolutions id, scan_id → scans (CASCADE), object_id, registered_el
 principal_owners       id, scan_id → scans (CASCADE), object_id, object_kind (app | group),
                        via (registration | service_principal | group), owner_id (IX),
                        owner_type, owner_name; UNIQUE (scan_id, object_id, via, owner_id)
+app_credentials        id, scan_id → scans (CASCADE), object_id, via, kind (secret |
+                       certificate), key_id, start_at, end_at;
+                       UNIQUE (scan_id, object_id, via, key_id)                     (0044)
+principal_sign_ins     id, scan_id → scans (CASCADE), principal_id, last_sign_in_at,
+                       last_non_interactive_at, last_successful_at, account_created_at;
+                       UNIQUE (scan_id, principal_id)                               (0044)
 role_definitions       role_definition_id PK (bare GUID, lowercased), role_name, role_type,
                        description, permissions JSON, assignable_scopes JSON, fetched_at
 ```
@@ -90,7 +96,14 @@ role_definitions       role_definition_id PK (bare GUID, lowercased), role_name,
   group; no row means refused, so unknown. `object_id` is the app's service
   principal or the group; managed identities are not asked. The current
   owners come from the newest completed check that read the object
-  (`app/core/owners.py`).
+  (`app/core/owners.py`). The same Graph calls give the app's secrets and
+  certificates (`app_credentials`: kind and dates; the hint and the value
+  are never kept).
+- **Sign-ins** (`app/tools/graph_signins.py`): for the people holding a
+  grant that can change who has access or get keys. Optional: Graph
+  refusing (AuditLog.Read.All, Entra ID P1/P2) or not answering leaves no
+  rows, so the dates are unknown and the check goes on. A row without dates:
+  no sign-in recorded (`app/core/signins.py`).
 - **`role_definitions` is a global cache.** Filled during checks, shared
   by all of them, and kept when a check is deleted.
 - **Eligibilities** (PIM) are per check and follow the same "current" rule
@@ -451,6 +464,7 @@ always starts on the current schema.
 | 0041  | `directory_audit_events.kind` / `role_id`; `group_id` optional (Entra role entries) |
 | 0042  | `audit_events.detail`: what an audited change changed, when the endpoint says so |
 | 0043  | `principal_owners`, `scan_owner_resolutions`; change kinds `owner_added` / `owner_removed` |
+| 0044  | `principal_sign_ins`, `app_credentials` |
 
 ### Migration conventions
 

@@ -93,7 +93,7 @@ a subscription it covers, and on demand (`app/core/findings.py`).
 |---|---|
 | `high_risk_broad_scope` | Owner / Contributor / UAA-class role at management group or subscription |
 | `unresolved_principal` | Graph could not resolve the principal (likely deleted) |
-| `unused` | none of the role's action patterns seen in the window, with events on file for the subscription |
+| `unused` | none of the role's action patterns seen in the window (the idle threshold, capped at the Activity Log's retention), with events on file for the subscription |
 | `over_broad` | partly used; a narrower built-in covers every operation seen |
 | `custom_replaceable` | custom role whose use a built-in covers |
 | `redundant` | the same principal holds a broader-or-equal role above |
@@ -108,6 +108,9 @@ a subscription it covers, and on demand (`app/core/findings.py`).
 | `app_owned_by_app` | another app owns such an app (high) |
 | `group_owners` | someone owns a group holding such a grant, and so decides who has it (high on Entra ID, a management group or a subscription) |
 | `guest_owner` | a guest (`#EXT#`) owns such an app or group (high) |
+| `entra_admin_idle` | a person holds, standing, an Entra role that can change who has access or get keys, and hasn't signed in for `idle_days` (or never, with an account older than that); break-glass left out (high; advice `R03 idle-admin`) |
+| `app_secret_long_lived` | an app holding such a grant has a secret or certificate valid more than two years (medium; `R19 long-lived-secret`) |
+| `app_secret_expired` | such an app still has an expired secret or certificate (low; `R20 expired-secret`) |
 
 Entra roles (the place `/providers/microsoft.aadiam`) get only the four
 `entra_*` categories, `foreign_group` and the owner categories: no usage is recorded for them (`app/core/entra_findings.py`).
@@ -116,7 +119,10 @@ at `access` or `keys`, use the owners from the newest check that read them,
 leave out owners who already hold that level or more at the place or above
 (directly, through a group, or eligible through PIM) and break-glass
 identities, and skip managed identities,
-Microsoft's apps and apps registered in another tenant. Their `evidence`
+Microsoft's apps and apps registered in another tenant. The secret findings
+(`app/core/credential_findings.py`) list the `credentials` (`via`, `kind`,
+`key_id`, `start_at`, `end_at`) and give `az ad app credential reset …
+--append --years 1` and `az ad app|sp credential delete … --key-id`. Their `evidence`
 lists the `owners` (`id`, `name`, `type`, `via`) and the app's `app_id`; the
 advice (rules `R17 owners` and `R18 guest-owner`, action `fix_owners`) gives
 `az ad app owner remove`, `az ad group owner remove` and, for a service
@@ -129,7 +135,7 @@ category)[:40]`: stable across checks, so a decision carries over.
 |---|---|
 | `GET /findings?status=&severity=&category=&q=&limit=100&offset=0&per=finding` | Every finding on the current grants, worst first; a grant seen by several checks appears once. `status` is the effective one, or `decided`. `per=grant` pages by grant. `summary` always covers everything. |
 | `GET /iam-access/scans/{id}/findings?severity=&category=&status=` | One check's findings with `summary`. |
-| `POST /iam-access/scans/{id}/findings/recompute?window_days=90` | Rebuild coverage and findings now. 400 unless the check is `done`. |
+| `POST /iam-access/scans/{id}/findings/recompute?window_days=` | Rebuild coverage and findings now (`window_days` 1–365; default the idle threshold, capped at the Activity Log's retention). 400 unless the check is `done`. |
 | `PUT /iam-access/findings/{fingerprint}/decision` | `{decision: reviewed\|accepted_risk\|snoozed\|resolved, note, snoozed_until}`; `snoozed` needs a date. Upsert; the actor comes from the token. |
 | `POST /iam-access/findings/decisions` | The same verdict on up to 1,000 fingerprints in one transaction; `{updated: n}`. |
 | `DELETE /iam-access/findings/{fingerprint}/decision` | 204; 404 when nothing was recorded. |
@@ -155,9 +161,9 @@ completed check that recorded them.
 | `GET /scopes/capabilities?scope=&inside_limit=30` | *Who can do what*: each identity once, at its strongest level (below), with its grants, eligibilities, `keys_for`, `member_count`, and for an app or group `owner_count` (null: unknown) and `owners_elsewhere` (an app registered in another tenant); `inside` lists child places that give someone more; `pim` summarises what PIM found. |
 | `GET /scopes/activity?scope=&most_active_limit=10` | Activity Log per subscription under the place, the owning check's coverage (attributed and unattributed callers), and the most active grants. |
 | `GET /principals?q=&principal_type=&limit=100` | Identity registry search, with `assignment_count`, `group_count`, `last_activity_at`. |
-| `GET /principals/{id}?members_limit=200` | The identity page: current grants (direct and through groups, Entra roles included), `eligible`, `groups`, `members` (groups), findings, `summary`, `entra_activations` (Entra roles it activated through PIM, from the Entra ID audit log: `at`, `role_id`, `role_name`), `owners` (an app or group: `owner_id`, `owner_name`, `owner_type`, `via` = `registration` / `service_principal` / `group`; null when unknown), `owners_elsewhere`, and `owns` (the apps and groups holding access it owns: `object_id`, `object_name`, `object_kind`, `via`, `level`, `scope`, `scope_name`, `grants`; filtered to what the caller may see). 404 when no check has seen it. |
+| `GET /principals/{id}?members_limit=200` | The identity page: current grants (direct and through groups, Entra roles included), `eligible`, `groups`, `members` (groups), findings, `summary`, `entra_activations` (Entra roles it activated through PIM, from the Entra ID audit log: `at`, `role_id`, `role_name`), `owners` (an app or group: `owner_id`, `owner_name`, `owner_type`, `via` = `registration` / `service_principal` / `group`; null when unknown), `owners_elsewhere`, `owns` (the apps and groups holding access it owns: `object_id`, `object_name`, `object_kind`, `via`, `level`, `scope`, `scope_name`, `grants`; filtered to what the caller may see), `sign_in` (a person: `last_at`, `read_at`, `idle`, `idle_days`; admins and the person only) and `credentials` (an app: `via`, `kind`, `start_at`, `end_at`, `expired`, `long_lived`; null when no check read them). 404 when no check has seen it. |
 | `GET /principals/{id}/activity?days=90&recent_limit=25` | Its own Activity Log events, matched on `caller_oid` (a group: its members'). |
-| `GET /grants/{grant_id}` | One current grant in plain words: who, role, level and `powers`, where, origin, PIM, condition, coverage, findings, advice, `owners` / `owners_elsewhere` for an app's or a group's grant, and `review` when this month's round covers it. 404 when the latest check does not have it. |
+| `GET /grants/{grant_id}` | One current grant in plain words: who, role, level and `powers`, where, origin, PIM, condition, coverage, findings, advice, `owners` / `owners_elsewhere` for an app's or a group's grant, `sign_in` for a person's (admins and the person only), `credentials` for an app's, and `review` when this month's round covers it. 404 when the latest check does not have it. |
 | `GET /search?q=&limit=8` | ⌘K: places, identities and roles, exact → prefix → substring. Under 2 characters: empty. |
 | `POST /settings/registry/rebuild` (admin) | Re-derive the place and identity registries from every completed check. Idempotent. |
 
@@ -310,7 +316,7 @@ whole tenant (admins only); 404 for an unknown place.
 
 | Call | What it does |
 |---|---|
-| `GET` / `PUT /settings/advice` (admin) | The playbook's `new_days` (1–365), `expiring_days` (1–180) and `break_glass` identities (exempt from the standing-admin rules). |
+| `GET` / `PUT /settings/advice` (admin) | The playbook's `new_days` (1–365), `expiring_days` (1–180), `idle_days` (7–365, default 90: the `unused` window, capped at the Activity Log's retention, and the `entra_admin_idle` threshold) and `break_glass` identities (exempt from the standing-admin and idle rules). Saving a new `idle_days` or `break_glass` recomputes the current checks' findings in the background. |
 | `GET` / `PUT /settings/ai` (admin) | `enabled`, `model`, `api_key` (write only; stored encrypted, so it needs `ENCRYPTION_KEY`); reads `key_source`, `daily_limit`, `written_today`. 400 on a bad value. |
 | `GET /ai/status` | `{available, model}`. |
 | `POST /ai/preview` `{"grant_id"}` or `{"principal_id"}` | Exactly what `explain` would send. Sends nothing. |

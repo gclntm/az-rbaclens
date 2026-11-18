@@ -491,7 +491,7 @@ permission, each set in a different place:
 | **Reader** | Azure role | On the management group to review, or the Tenant Root Group | Required: role assignments, PIM, the Activity Log |
 | **Management Group Reader** | Azure role | On the Tenant Root Group | Required: the tree of management groups above |
 | **Directory Readers** | Entra role | Entra ID → Roles and administrators | Recommended: names, the members of groups, and who holds which Entra role |
-| **AuditLog.Read.All** | Microsoft Graph *Application* permission, admin consent | The app registration → API permissions | Optional: who added or removed a group member |
+| **AuditLog.Read.All** | Microsoft Graph *Application* permission, admin consent | The app registration → API permissions | Optional: who added or removed a group member or an owner; when people with powerful access last signed in (also needs Entra ID P1/P2) |
 | **Mail.Send** | Microsoft Graph *Application* permission, admin consent | The app registration → API permissions | Optional: real email ([below](#real-email-through-microsoft-graph)) |
 
 **Application, not Delegated.** A Microsoft Graph permission comes in two

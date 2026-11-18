@@ -25,6 +25,20 @@ carries a version). `make release V=X.Y.Z` turns that heading into
   - the **Changes** page shows owners added and removed, with who did it from
     the Entra ID audit log (which now keeps owner entries too), including an
     owner added and removed between two checks.
+- **Idle threshold** (Settings › Advice, 90 days by default): one setting
+  for "not used" (no change recorded for that long, never longer than the
+  Activity Log is kept) and for idle Entra admins. Saving it works out what
+  needs a look again.
+- **Idle Entra admins.** Each check reads when the people holding powerful
+  access last signed in (with AuditLog.Read.All and Entra ID P1/P2). Someone
+  holding a powerful Entra role all the time who hasn't signed in for the
+  idle threshold needs a look (break-glass identities left out). The date
+  shows on their page, their grants and the People list, to admins and the
+  person only.
+- **App secrets.** Each check reads the secrets and certificates of the apps
+  holding a grant (dates only). An app's page lists them; an app holding a
+  powerful grant needs a look when one is valid more than two years, or
+  expired and still on file, with the commands to replace or delete it.
 - `POST /settings/database/cleanup-scans` is gone, as announced in 0.35.0:
   Settings › Data kept (`/settings/data-kept`) replaces it.
 - Owner history in the audit log starts with this version: a collection of
