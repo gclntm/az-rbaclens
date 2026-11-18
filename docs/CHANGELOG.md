@@ -19,11 +19,14 @@ carries a version). `make release V=X.Y.Z` turns that heading into
     they **Own**; the grant page names the owners;
   - **Needs a look** flags apps and groups whose grant can change who has
     access or get keys and passwords when people, another app or a guest own
-    them (break-glass identities left out), with the commands that remove an
+    them and gain power by it (owners who already hold that power there, and
+    break-glass identities, are left out), with the commands that remove an
     owner;
   - the **Changes** page shows owners added and removed, with who did it from
     the Entra ID audit log (which now keeps owner entries too), including an
     owner added and removed between two checks.
+- `POST /settings/database/cleanup-scans` is gone, as announced in 0.35.0:
+  Settings › Data kept (`/settings/data-kept`) replaces it.
 - Owner history in the audit log starts with this version: a collection of
   the last 30 days started by hand reads the earlier entries once.
 

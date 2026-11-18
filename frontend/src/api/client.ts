@@ -333,11 +333,6 @@ export type MaintenanceResult = {
   rows_affected: number | null;
 };
 
-export type CleanupRequest = {
-  older_than_days: number;
-  only_failed: boolean;
-};
-
 export type ActivityPullStatus = "pending" | "running" | "done" | "failed";
 
 export type ActivityPull = {
@@ -1674,11 +1669,6 @@ export const api = {
       request<{ deletes: Record<string, number> }>("/settings/data-kept/preview", {
         method: "POST",
         body: JSON.stringify({ values }),
-      }),
-    cleanupScans: (payload: CleanupRequest) =>
-      request<MaintenanceResult>("/settings/database/cleanup-scans", {
-        method: "POST",
-        body: JSON.stringify(payload),
       }),
   },
 

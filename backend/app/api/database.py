@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -24,12 +24,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.retention import run_retention, scope_owner_ids
-from app.db.models import Scan
+from app.core.retention import run_retention
 from app.db.session import engine as default_engine
 from app.db.session import get_session
 from app.schemas.database import (
-    CleanupRequest,
     DatabaseStats,
     IndexStats,
     MaintenanceResult,
@@ -283,45 +281,6 @@ def run_reindex(
             detail="REINDEX completed.",
         )
     raise HTTPException(status_code=501, detail="REINDEX not supported")
-
-
-# Deprecated: Settings › Data kept replaces it (api/data_kept.py); removed in a later release.
-@router.post("/cleanup-scans", response_model=MaintenanceResult, deprecated=True)
-def cleanup_old_scans(
-    payload: CleanupRequest,
-    session: Annotated[Session, Depends(get_session)],
-) -> MaintenanceResult:
-    """Delete scans older than ``older_than_days``. role_assignments cascade
-    via the existing FK ON DELETE CASCADE."""
-    if payload.older_than_days < 1:
-        raise HTTPException(status_code=400, detail="older_than_days must be >= 1")
-
-    cutoff = datetime.now(UTC) - timedelta(days=payload.older_than_days)
-    started = time.perf_counter()
-
-    # Never delete a snapshot some scope still treats as its latest: the
-    # scope's current view would go empty until the next snapshot.
-    stmt = (
-        Scan.__table__.delete()
-        .where(Scan.created_at < cutoff)
-        .where(Scan.status.in_(("done", "failed")))
-        .where(Scan.id.not_in(scope_owner_ids(session) or {-1}))
-    )
-    if payload.only_failed:
-        stmt = stmt.where(Scan.status == "failed")
-    result = session.execute(stmt)
-    session.commit()
-
-    return MaintenanceResult(
-        operation="cleanup",
-        duration_ms=int((time.perf_counter() - started) * 1000),
-        detail=(
-            f"Deleted {result.rowcount} scan(s) older than {payload.older_than_days} day(s)"
-            + (" (failed only)" if payload.only_failed else "")
-            + "."
-        ),
-        rows_affected=result.rowcount,
-    )
 
 
 @router.get("/retention", response_model=RetentionPolicy)

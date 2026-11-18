@@ -58,8 +58,3 @@ class RetentionRun(BaseModel):
     days_compacted: int = 0
     events_compacted: int = 0
     rows_after_compaction: int = 0
-
-
-class CleanupRequest(BaseModel):
-    older_than_days: int = 30
-    only_failed: bool = False

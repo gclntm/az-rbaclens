@@ -135,20 +135,6 @@ def test_run_retention_prunes_all_three(app_with_sqlite: TestClient, monkeypatch
     assert policy["event_retention_days"] == 120 and policy["snapshot_keep_per_scope"] == 1
 
 
-def test_manual_cleanup_never_deletes_a_scope_owner(app_with_sqlite: TestClient):
-    from sqlalchemy import select
-
-    from app.db.models import Scan
-    from app.db.session import SessionLocal
-
-    with SessionLocal() as db:
-        ids = _seed(db)
-    r = app_with_sqlite.post("/api/settings/database/cleanup-scans", json={"older_than_days": 1})
-    assert r.status_code == 200 and r.json()["rows_affected"] == 3
-    with SessionLocal() as db:
-        assert db.scalars(select(Scan.id)).all() == [ids[2]]
-
-
 def test_old_pull_records_are_pruned_but_not_the_ones_still_in_use(app_with_sqlite: TestClient):
     from sqlalchemy import select
 
