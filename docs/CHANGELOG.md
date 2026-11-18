@@ -8,6 +8,11 @@ carries a version). `make release V=X.Y.Z` turns that heading into
 
 ## 2026-11-18
 
+- **How it works** (`/help`, in the side menu): a page for newcomers on the
+  workflow: the loop from the daily check to Needs a look, Reviews, To do
+  and back; where to start depending on your role; the four review
+  decisions; Mark reviewed, Accept risk and Snooze; and a few things good
+  to know.
 - **Owners and secrets in the monthly review.** What the owner and secret
   findings flag is now reviewed like a grant, each once, in the round of the
   strongest grant it reaches: an owner of an app or group (keep, remove, or

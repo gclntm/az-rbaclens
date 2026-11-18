@@ -304,6 +304,9 @@ identity federation).
 
 ## Reviews, To do, Changes and Report
 
+In the app, **How it works** (`/help`) walks a newcomer through this
+workflow in five minutes.
+
 - **Reviews** (`/reviews`): every month, each responsible person (Settings ›
   Who is responsible) reviews the grants given on their places: keep,
   remove, change, or ask the person. The playbook suggests a decision on each
